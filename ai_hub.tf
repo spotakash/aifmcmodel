@@ -38,10 +38,22 @@ resource "azurerm_ai_foundry" "ai_hub" {
   }
 
   identity {
-    type = "SystemAssigned"
+    type         = "SystemAssigned, UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.cmk.id]
   }
+
+  encryption {
+    key_id                    = azurerm_key_vault_key.cmk.id
+    key_vault_id              = azurerm_key_vault.cmk.id
+    user_assigned_identity_id = azurerm_user_assigned_identity.cmk.id
+  }
+
+  primary_user_assigned_identity = azurerm_user_assigned_identity.cmk.id
 
   tags = local.tags
 
-  depends_on = [terraform_data.purge_soft_deleted_ai_hub]
+  depends_on = [
+    terraform_data.purge_soft_deleted_ai_hub,
+    time_sleep.wait_for_cmk_rbac,
+  ]
 }

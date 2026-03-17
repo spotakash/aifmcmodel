@@ -79,21 +79,3 @@ resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
     category = "Transaction"
   }
 }
-
-resource "azurerm_monitor_diagnostic_setting" "cognitive" {
-  name                       = "diag-${local.cognitive_account_name}"
-  target_resource_id         = azurerm_cognitive_account.ai_services.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.ml.id
-
-  enabled_log {
-    category = "Audit"
-  }
-
-  enabled_log {
-    category = "RequestResponse"
-  }
-
-  enabled_metric {
-    category = "AllMetrics"
-  }
-}

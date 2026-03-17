@@ -6,26 +6,35 @@ This Terraform configuration reverse-engineers and codifies the existing Azure i
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    Resource Group                            │
+│     CMK Resource Group (<project>-cmk)                        │
+│     ┌──────────────────────────────────────────────┐   │
+│     │ Key Vault (purge-protected, RBAC)              │   │
+│     │  └─ RSA 2048 Key (CMK for AI Hub encryption)   │   │
+│     │ User-Assigned Identity (Crypto User on KV)    │   │
+│     └──────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│     Main Resource Group (<project>)                           │
 │                                                              │
 │  ┌─────────────┐  ┌──────────┐  ┌─────────────────────────┐ │
 │  │ Storage Acct │  │ Key Vault│  │ Log Analytics + AppIns  │ │
 │  └──────┬──────┘  └────┬─────┘  └────────────┬────────────┘ │
 │         │              │                      │              │
 │  ┌──────┴──────────────┴──────────────────────┴───────────┐  │
-│  │            AI Foundry Hub (azurerm_ai_foundry)          │  │
+│  │      AI Foundry Hub (azurerm_ai_foundry, CMK-encrypted) │  │
 │  │  ┌───────────────────────────────────────────────────┐  │  │
 │  │  │   AI Foundry Project (azurerm_ai_foundry_project) │  │  │
 │  │  │  ┌─────────────────────────────────────────────┐  │  │  │
 │  │  │  │   Managed Online Endpoint (azapi)            │  │  │  │
-│  │  │  │   └─ Deployment: GTE-large-en-v1.5 (azapi)  │  │  │  │
+│  │  │  │   └─ Model Deployment (azapi)                │  │  │  │
 │  │  │  └─────────────────────────────────────────────┘  │  │  │
 │  │  └───────────────────────────────────────────────────┘  │  │
 │  └────────────────────────────────────────────────────────┘  │
 │                                                              │
-│  ┌────────────┐  ┌───────────────┐                           │
-│  │    ACR     │  │  AI Services  │                           │
-│  └────────────┘  └───────────────┘                           │
+│  ┌────────────┐                                                │
+│  │    ACR     │                                                │
+│  └────────────┘                                                │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -40,8 +49,8 @@ This Terraform configuration reverse-engineers and codifies the existing Azure i
 | Resource | Provider | Reason |
 |---|---|---|
 | Resource Group, Storage, Key Vault, ACR, Log Analytics, App Insights | `azurerm ~> 4.0` | Fully supported, stable |
-| Cognitive Services (AI Services) | `azurerm` | Supported via `azurerm_cognitive_account` |
-| AI Foundry Hub | `azurerm` | Supported via `azurerm_ai_foundry` |
+| CMK Key Vault, Key, User-Assigned Identity, RBAC | `azurerm` | CMK encryption for AI Hub |
+| AI Foundry Hub | `azurerm` | Supported via `azurerm_ai_foundry` (CMK-encrypted) |
 | AI Foundry Project | `azurerm` | Supported via `azurerm_ai_foundry_project` |
 | Online Endpoint + Deployment | `azapi ~> 2.0` | HuggingFace registry model + traffic routing (no azurerm support) |
 | Sleep timer | `time ~> 0.11` | Wait for project services to initialize |
@@ -56,11 +65,13 @@ All resource names are derived from a single `project_name` variable via `locals
 | Storage Account | `<project_name>gte` | `akgte15gte` |
 | Key Vault | `kv-<safe_prefix>-gte` | `kv-akgte15-gte` |
 | Container Registry | `acr<safe_prefix>gte` | `acrakgte15gte` |
-| AI Services | `ai-<safe_prefix>` | `ai-akgte15` |
 | AI Hub | `hub-<safe_prefix>` | `hub-akgte15` |
 | AI Project | `prj-<safe_prefix>-gte` | `prj-akgte15-gte` |
-| ML Workspace | `ml-<safe_prefix>-gte` | `ml-akgte15-gte` |
 | Endpoint | `ep-<safe_prefix>-gte` | `ep-akgte15-gte` |
+| CMK Resource Group | `<project_name>-cmk` | `akgte15-cmk` |
+| CMK Key Vault | `kv-<safe_prefix>-cmk` | `kv-akgte15-cmk` |
+| CMK Key | `cmk-<safe_prefix>` | `cmk-akgte15` |
+| CMK Identity | `id-<safe_prefix>-cmk` | `id-akgte15-cmk` |
 
 > **Note:** If `project_name` starts with a digit (e.g. `1503ak`), a `p` prefix is auto-added (`safe_prefix = "p1503ak"`) to satisfy Azure naming rules that require names to start with a letter.
 
@@ -78,8 +89,8 @@ All resource names are derived from a single `project_name` variable via `locals
 | `keyvault.tf` | Key Vault with deployer access policy |
 | `monitoring.tf` | Log Analytics + Application Insights |
 | `acr.tf` | Azure Container Registry |
-| `cognitive.tf` | Cognitive Services (AI Services) |
-| `ai_hub.tf` | AI Foundry Hub (azurerm_ai_foundry) |
+| `cmk.tf` | CMK Key Vault + RSA Key + User-Assigned Identity + RBAC (separate RG) |
+| `ai_hub.tf` | AI Foundry Hub (azurerm_ai_foundry, CMK-encrypted) |
 | `ai_project.tf` | AI Foundry Project (azurerm_ai_foundry_project) |
 | `endpoint.tf` | Online endpoint + HuggingFace model deployment (azapi) |
 | `outputs.tf` | Key resource outputs |
@@ -194,7 +205,6 @@ See [scripts/README.md](scripts/README.md) for full usage.
 | `already exists` on KV access policy | Azure auto-created it first | No explicit policies — Azure manages them |
 | `SkuBasedEngineNotFound: Cpu` | GPU model on CPU SKU | Auto-mapped in `locals.tf`; or set GPU SKU in tfvars |
 | `Soft-deleted workspace exists` | Previous workspace in soft-delete | Auto-purged by `terraform_data` resources with 30s wait for Azure to complete purge |
-| `Soft-deleted cognitive account` | Previous AI Services in soft-delete | Auto-purged by `terraform_data.purge_soft_deleted_cognitive` |
 | `DeploymentName must be 3-32 chars` | Name too long | Shorten `deployment_name` in tfvars (validated at plan time) |
 | `CannotDeleteResource: nested resources` | Endpoint exists under project | Auto-handled — destroy-time provisioner on `ai_project` cleans up endpoints before deletion |
 
@@ -202,7 +212,6 @@ See [scripts/README.md](scripts/README.md) for full usage.
 
 Edit `terraform.tfvars` to change:
 - `project_name` — all resource names derive from this
-- Model URI — swap to any HuggingFace model from Azure ML registry
+- Model URI — swap to any open source model from AI Foundry Model Catalog
 - `deployment_instance_type` — VM size for model serving
 - `public_network_access` — toggle all resources public/private
-- `create_compute_instance` — enable optional dev compute

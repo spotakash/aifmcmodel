@@ -7,16 +7,20 @@ This is a **Terraform IaC project** that deploys a self-hosted HuggingFace GTE e
 ## Architecture
 
 ```
-Resource Group
+CMK Resource Group (<project>-cmk)
+ ├── Key Vault (purge-protected, RBAC)
+ │    └── RSA 2048 Key (CMK for AI Hub encryption)
+ └── User-Assigned Identity (Crypto User on KV)
+
+Main Resource Group (<project>)
  ├── Storage Account (shared by all ML workspaces)
  ├── Key Vault (shared, deployer access policy)
  ├── Log Analytics + Application Insights
  ├── Container Registry
- ├── Cognitive Services (AI Services)
- ├── AI Foundry Hub (azurerm_ai_foundry)
+ ├── AI Foundry Hub (azurerm_ai_foundry, CMK-encrypted)
  │    └── AI Foundry Project (azurerm_ai_foundry_project)
  │         └── Managed Online Endpoint (azapi)
- │              └── Model Deployment (HuggingFace registry, azapi)
+ │              └── Model Deployment (azapi)
 ```
 
 ## File Layout Convention
@@ -33,8 +37,8 @@ Resource Group
 | `keyvault.tf` | Key Vault |
 | `monitoring.tf` | Log Analytics + Application Insights |
 | `acr.tf` | Container Registry |
-| `cognitive.tf` | Cognitive Services |
-| `ai_hub.tf` | AI Foundry Hub (azurerm_ai_foundry) |
+| `cmk.tf` | CMK Key Vault + RSA Key + User-Assigned Identity + RBAC (separate RG) |
+| `ai_hub.tf` | AI Foundry Hub (azurerm_ai_foundry, CMK-encrypted) |
 | `ai_project.tf` | AI Foundry Project (azurerm_ai_foundry_project) |
 | `endpoint.tf` | Online endpoint + model deployment (azapi) |
 | `outputs.tf` | All outputs |

@@ -63,15 +63,20 @@ output "container_registry_login_server" {
   value       = azurerm_container_registry.ml.login_server
 }
 
-# --- Cognitive Services ---
-output "cognitive_account_id" {
-  description = "ID of the Cognitive Services account"
-  value       = azurerm_cognitive_account.ai_services.id
+# --- CMK ---
+output "cmk_key_vault_id" {
+  description = "ID of the CMK Key Vault"
+  value       = azurerm_key_vault.cmk.id
 }
 
-output "cognitive_account_endpoint" {
-  description = "Endpoint of the Cognitive Services account"
-  value       = azurerm_cognitive_account.ai_services.endpoint
+output "cmk_key_id" {
+  description = "Key Vault URI of the CMK encryption key"
+  value       = azurerm_key_vault_key.cmk.id
+}
+
+output "cmk_identity_id" {
+  description = "ID of the User-Assigned Managed Identity for CMK"
+  value       = azurerm_user_assigned_identity.cmk.id
 }
 
 # --- AI Foundry Hub ---

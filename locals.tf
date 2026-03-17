@@ -27,11 +27,16 @@ locals {
   log_analytics_workspace_name = "${local.safe_prefix}-gte-la"   # must start with alphanumeric
   application_insights_name    = "${local.safe_prefix}-gte-appi" # liberal naming
   container_registry_name      = "acr${local.safe_prefix}gte"    # alphanumeric only, must start with letter
-  cognitive_account_name       = "ai-${local.safe_prefix}"       # must start with letter
 
   # AI Foundry workspaces — must start with letter
   ai_hub_name     = "hub-${local.safe_prefix}"
   ai_project_name = "prj-${local.safe_prefix}-gte"
+
+  # CMK resources (separate resource group)
+  cmk_resource_group_name = "${var.project_name}-cmk"
+  cmk_key_vault_name      = "kv-${local.safe_prefix}-cmk"
+  cmk_key_name            = "cmk-${local.safe_prefix}"
+  cmk_identity_name       = "id-${local.safe_prefix}-cmk"
 
   # Endpoint — must start with letter
   endpoint_name = "ep-${local.safe_prefix}-gte"
