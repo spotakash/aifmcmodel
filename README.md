@@ -1,6 +1,6 @@
-# Azure AI Foundry + HuggingFace GTE Embedding Model — Terraform Deployment
+# Azure AI Foundry + Custom Open Source Model from AI Foundry Model Catalog — Terraform Deployment
 
-This Terraform configuration reverse-engineers and codifies the existing Azure infrastructure for deploying a self-hosted **HuggingFace GTE embedding model** (`alibaba-nlp-gte-large-en-v1.5`) via Azure AI Foundry.
+This Terraform configuration codifies the existing Azure infrastructure for deploying a self-hosted Sample **HuggingFace GTE embedding model** (`alibaba-nlp-gte-large-en-v1.5`) via Azure AI Foundry.
 
 ## Architecture
 
@@ -43,7 +43,7 @@ This Terraform configuration reverse-engineers and codifies the existing Azure i
 | Cognitive Services (AI Services) | `azurerm` | Supported via `azurerm_cognitive_account` |
 | AI Foundry Hub | `azurerm` | Supported via `azurerm_ai_foundry` |
 | AI Foundry Project | `azurerm` | Supported via `azurerm_ai_foundry_project` |
-| Online Endpoint + Deployment | `azapi ~> 2.0` | HuggingFace registry model + traffic routing (no azurerm support) |
+| Online Endpoint + Deployment | `azapi ~> 2.0` | Model catalog registry + traffic routing (no azurerm support) |
 | Sleep timer | `time ~> 0.11` | Wait for project services to initialize |
 
 ## Naming Convention
@@ -59,7 +59,6 @@ All resource names are derived from a single `project_name` variable via `locals
 | AI Services | `ai-<safe_prefix>` | `ai-akgte15` |
 | AI Hub | `hub-<safe_prefix>` | `hub-akgte15` |
 | AI Project | `prj-<safe_prefix>-gte` | `prj-akgte15-gte` |
-| ML Workspace | `ml-<safe_prefix>-gte` | `ml-akgte15-gte` |
 | Endpoint | `ep-<safe_prefix>-gte` | `ep-akgte15-gte` |
 
 > **Note:** If `project_name` starts with a digit (e.g. `1503ak`), a `p` prefix is auto-added (`safe_prefix = "p1503ak"`) to satisfy Azure naming rules that require names to start with a letter.
@@ -81,7 +80,7 @@ All resource names are derived from a single `project_name` variable via `locals
 | `cognitive.tf` | Cognitive Services (AI Services) |
 | `ai_hub.tf` | AI Foundry Hub (azurerm_ai_foundry) |
 | `ai_project.tf` | AI Foundry Project (azurerm_ai_foundry_project) |
-| `endpoint.tf` | Online endpoint + HuggingFace model deployment (azapi) |
+| `endpoint.tf` | Online endpoint + model deployment from AI Foundry Model Catalog (azapi) |
 | `outputs.tf` | Key resource outputs |
 
 ## Usage
@@ -202,7 +201,6 @@ See [scripts/README.md](scripts/README.md) for full usage.
 
 Edit `terraform.tfvars` to change:
 - `project_name` — all resource names derive from this
-- Model URI — swap to any HuggingFace model from Azure ML registry
+- Model URI — swap to any open source model from AI Foundry Model Catalog
 - `deployment_instance_type` — VM size for model serving
 - `public_network_access` — toggle all resources public/private
-- `create_compute_instance` — enable optional dev compute
