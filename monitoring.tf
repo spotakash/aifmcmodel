@@ -25,3 +25,75 @@ resource "azurerm_application_insights" "ml" {
 
   tags = local.tags
 }
+
+# =============================================================================
+# Diagnostic Settings — send platform logs & metrics to Log Analytics
+# =============================================================================
+
+resource "azurerm_monitor_diagnostic_setting" "keyvault" {
+  name                       = "diag-${local.key_vault_name}"
+  target_resource_id         = azurerm_key_vault.ml.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.ml.id
+
+  enabled_log {
+    category = "AuditEvent"
+  }
+
+  enabled_log {
+    category = "AzurePolicyEvaluationDetails"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "storage" {
+  name                       = "diag-${local.storage_account_name}"
+  target_resource_id         = azurerm_storage_account.ml.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.ml.id
+
+  enabled_metric {
+    category = "Transaction"
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
+  name                       = "diag-${local.storage_account_name}-blob"
+  target_resource_id         = "${azurerm_storage_account.ml.id}/blobServices/default/"
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.ml.id
+
+  enabled_log {
+    category = "StorageRead"
+  }
+
+  enabled_log {
+    category = "StorageWrite"
+  }
+
+  enabled_log {
+    category = "StorageDelete"
+  }
+
+  enabled_metric {
+    category = "Transaction"
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "cognitive" {
+  name                       = "diag-${local.cognitive_account_name}"
+  target_resource_id         = azurerm_cognitive_account.ai_services.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.ml.id
+
+  enabled_log {
+    category = "Audit"
+  }
+
+  enabled_log {
+    category = "RequestResponse"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
+}

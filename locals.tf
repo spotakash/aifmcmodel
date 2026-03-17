@@ -29,14 +29,12 @@ locals {
   container_registry_name      = "acr${local.safe_prefix}gte"    # alphanumeric only, must start with letter
   cognitive_account_name       = "ai-${local.safe_prefix}"       # must start with letter
 
-  # ML workspaces — must start with letter
-  ai_hub_name       = "hub-${local.safe_prefix}"
-  ai_project_name   = "prj-${local.safe_prefix}-gte"
-  ml_workspace_name = "ml-${local.safe_prefix}-gte"
+  # AI Foundry workspaces — must start with letter
+  ai_hub_name     = "hub-${local.safe_prefix}"
+  ai_project_name = "prj-${local.safe_prefix}-gte"
 
-  # Endpoint & Compute — must start with letter
-  endpoint_name         = "ep-${local.safe_prefix}-gte"
-  compute_instance_name = "ci-${local.safe_prefix}"
+  # Endpoint — must start with letter
+  endpoint_name = "ep-${local.safe_prefix}-gte"
 
   # --- Model-to-SKU auto-mapping ---
   # Some HuggingFace models require GPU; others work on CPU.

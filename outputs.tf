@@ -76,20 +76,19 @@ output "cognitive_account_endpoint" {
 
 # --- AI Foundry Hub ---
 output "ai_hub_id" {
-  description = "ID of the AI Foundry Hub workspace"
-  value       = azapi_resource.ai_hub.id
+  description = "ID of the AI Foundry Hub"
+  value       = azurerm_ai_foundry.ai_hub.id
+}
+
+output "ai_hub_discovery_url" {
+  description = "Discovery URL of the AI Foundry Hub"
+  value       = azurerm_ai_foundry.ai_hub.discovery_url
 }
 
 # --- AI Foundry Project ---
 output "ai_project_id" {
-  description = "ID of the AI Foundry Project workspace"
-  value       = azapi_resource.ai_project.id
-}
-
-# --- Standard ML Workspace ---
-output "ml_workspace_id" {
-  description = "ID of the standard ML workspace"
-  value       = azurerm_machine_learning_workspace.ml.id
+  description = "ID of the AI Foundry Project"
+  value       = azurerm_ai_foundry_project.ai_project.id
 }
 
 # --- Online Endpoint ---

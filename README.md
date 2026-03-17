@@ -13,20 +13,19 @@ This Terraform configuration reverse-engineers and codifies the existing Azure i
 │  └──────┬──────┘  └────┬─────┘  └────────────┬────────────┘ │
 │         │              │                      │              │
 │  ┌──────┴──────────────┴──────────────────────┴───────────┐  │
-│  │            AI Foundry Hub (kind=Hub)                    │  │
+│  │            AI Foundry Hub (azurerm_ai_foundry)          │  │
 │  │  ┌───────────────────────────────────────────────────┐  │  │
-│  │  │        AI Foundry Project (kind=Project)          │  │  │
+│  │  │   AI Foundry Project (azurerm_ai_foundry_project) │  │  │
 │  │  │  ┌─────────────────────────────────────────────┐  │  │  │
-│  │  │  │   Managed Online Endpoint                   │  │  │  │
-│  │  │  │   └─ Deployment: GTE-large-en-v1.5 (HF)    │  │  │  │
+│  │  │  │   Managed Online Endpoint (azapi)            │  │  │  │
+│  │  │  │   └─ Deployment: GTE-large-en-v1.5 (azapi)  │  │  │  │
 │  │  │  └─────────────────────────────────────────────┘  │  │  │
 │  │  └───────────────────────────────────────────────────┘  │  │
 │  └────────────────────────────────────────────────────────┘  │
 │                                                              │
-│  ┌────────────────────┐  ┌────────────┐  ┌───────────────┐  │
-│  │ ML Workspace (Std) │  │    ACR     │  │  AI Services  │  │
-│  │ └─ Compute (opt.)  │  └────────────┘  └───────────────┘  │
-│  └────────────────────┘                                      │
+│  ┌────────────┐  ┌───────────────┐                           │
+│  │    ACR     │  │  AI Services  │                           │
+│  └────────────┘  └───────────────┘                           │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -42,10 +41,9 @@ This Terraform configuration reverse-engineers and codifies the existing Azure i
 |---|---|---|
 | Resource Group, Storage, Key Vault, ACR, Log Analytics, App Insights | `azurerm ~> 4.0` | Fully supported, stable |
 | Cognitive Services (AI Services) | `azurerm` | Supported via `azurerm_cognitive_account` |
-| Standard ML Workspace + Compute | `azurerm` | Supported via `azurerm_machine_learning_workspace` |
-| AI Foundry Hub (kind=Hub) | `azapi ~> 2.0` | Requires `workspaceHubConfig` not in azurerm |
-| AI Foundry Project (kind=Project) | `azapi` | Requires `hubResourceId` not in azurerm |
-| Online Endpoint + Deployment | `azapi` | HuggingFace registry model + traffic routing |
+| AI Foundry Hub | `azurerm` | Supported via `azurerm_ai_foundry` |
+| AI Foundry Project | `azurerm` | Supported via `azurerm_ai_foundry_project` |
+| Online Endpoint + Deployment | `azapi ~> 2.0` | HuggingFace registry model + traffic routing (no azurerm support) |
 | Sleep timer | `time ~> 0.11` | Wait for project services to initialize |
 
 ## Naming Convention
@@ -81,10 +79,9 @@ All resource names are derived from a single `project_name` variable via `locals
 | `monitoring.tf` | Log Analytics + Application Insights |
 | `acr.tf` | Azure Container Registry |
 | `cognitive.tf` | Cognitive Services (AI Services) |
-| `ml_hub.tf` | AI Foundry Hub workspace |
-| `ml_project.tf` | AI Foundry Project workspace (inherits from Hub) |
-| `ml_workspace.tf` | Standard ML workspace + optional compute |
-| `endpoint.tf` | Online endpoint + HuggingFace model deployment |
+| `ai_hub.tf` | AI Foundry Hub (azurerm_ai_foundry) |
+| `ai_project.tf` | AI Foundry Project (azurerm_ai_foundry_project) |
+| `endpoint.tf` | Online endpoint + HuggingFace model deployment (azapi) |
 | `outputs.tf` | Key resource outputs |
 
 ## Usage
@@ -127,7 +124,6 @@ terraform destroy -auto-approve
 | `location` | No | `australiaeast` | Azure region |
 | `environment` | No | `dev` | Environment tag |
 | `public_network_access` | No | `true` | Enable/disable public access on all resources |
-| `create_compute_instance` | No | `false` | Create optional compute instance |
 | `deployment_instance_type` | No | `Standard_DS5_v2` | VM size for model serving |
 | `deployment_instance_count` | No | `1` | Number of serving instances |
 
@@ -142,9 +138,13 @@ terraform destroy -auto-approve
 - **Log Analytics saved searches & tables** — default platform tables
 - **Storage containers & file shares** — auto-created by ML workspaces
 
+### AI Foundry Hub & Project (Native azurerm)
+
+The Hub (`azurerm_ai_foundry`) and Project (`azurerm_ai_foundry_project`) use the native azurerm provider for full Terraform lifecycle support. Only the online endpoint and model deployment use azapi (no azurerm equivalent exists for managed online endpoints with HuggingFace registry model deployments).
+
 ### AI Foundry Project Properties
 
-Projects inherit `keyVault`, `storageAccount`, `containerRegistry`, and `applicationInsights` from the parent Hub via `hubResourceId`. These must **not** be set on project creation.
+Projects inherit `keyVault`, `storageAccount`, `containerRegistry`, and `applicationInsights` from the parent Hub via `ai_services_hub_id`. These must **not** be set on project creation.
 
 ### Deployment Timing
 

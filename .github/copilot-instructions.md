@@ -13,12 +13,10 @@ Resource Group
  ├── Log Analytics + Application Insights
  ├── Container Registry
  ├── Cognitive Services (AI Services)
- ├── AI Foundry Hub (azapi, kind=Hub)
- │    └── AI Foundry Project (azapi, kind=Project)
+ ├── AI Foundry Hub (azurerm_ai_foundry)
+ │    └── AI Foundry Project (azurerm_ai_foundry_project)
  │         └── Managed Online Endpoint (azapi)
- │              └── Model Deployment (HuggingFace registry)
- └── Standard ML Workspace (azurerm)
-      └── Optional Compute Instance
+ │              └── Model Deployment (HuggingFace registry, azapi)
 ```
 
 ## File Layout Convention
@@ -36,9 +34,8 @@ Resource Group
 | `monitoring.tf` | Log Analytics + Application Insights |
 | `acr.tf` | Container Registry |
 | `cognitive.tf` | Cognitive Services |
-| `ml_hub.tf` | AI Foundry Hub (azapi) |
-| `ml_project.tf` | AI Foundry Project (azapi) |
-| `ml_workspace.tf` | Standard ML workspace + optional compute (azurerm) |
+| `ai_hub.tf` | AI Foundry Hub (azurerm_ai_foundry) |
+| `ai_project.tf` | AI Foundry Project (azurerm_ai_foundry_project) |
 | `endpoint.tf` | Online endpoint + model deployment (azapi) |
 | `outputs.tf` | All outputs |
 
@@ -54,8 +51,8 @@ All resource names are derived from `project_name` via `locals.tf`. Never hardco
 
 ## Provider Selection Rules
 
-1. **azurerm** — Use for stable, fully-supported resources (RG, Storage, KV, ACR, App Insights, Cognitive Services, standard ML Workspace)
-2. **azapi** — Use for AI Foundry Hub/Project (requires `workspaceHubConfig`, `hubResourceId`), online endpoints, and model deployments (HuggingFace registry + traffic routing)
+1. **azurerm** — Use for stable, fully-supported resources (RG, Storage, KV, ACR, App Insights, Cognitive Services, AI Foundry Hub, AI Foundry Project)
+2. **azapi** — Use only for resources without native azurerm support: online endpoints and model deployments (HuggingFace registry + traffic routing)
 3. **time** — Only for `time_sleep` between project creation and endpoint creation
 
 ## Key Coding Conventions
@@ -81,7 +78,7 @@ All resource names are derived from `project_name` via `locals.tf`. Never hardco
 
 ### Soft-Delete Handling
 - Use `terraform_data` with `provisioner "local-exec"` to purge soft-deleted resources before recreation
-- Applied to: ML Hub, ML Project, ML Workspace, Cognitive Account
+- Applied to: AI Foundry Hub, AI Foundry Project, Cognitive Account
 - Pattern: `az rest --method DELETE --url '...?forceToPurge=true' 2>/dev/null || true; sleep 30`
 - Add `sleep 30` after purge to let Azure complete the async purge before workspace creation
 
@@ -97,7 +94,7 @@ All resource names are derived from `project_name` via `locals.tf`. Never hardco
 
 ### AI Foundry Project Rules
 - Projects inherit `keyVault`, `storageAccount`, `containerRegistry`, `applicationInsights` from Hub
-- **Never** set these properties on the project — only set `hubResourceId`
+- **Never** set these properties on the project — only set `ai_services_hub_id`
 - A 120s `time_sleep` is required between project creation and endpoint creation
 
 ### Dependencies
@@ -107,7 +104,7 @@ All resource names are derived from `project_name` via `locals.tf`. Never hardco
 ## Variable Management
 - Keep `terraform.tfvars` minimal — only `project_name` and deployment-specific values
 - All derived names belong in `locals.tf`, not as separate variables
-- Use `bool` variables with sensible defaults for feature flags (`create_compute_instance`, `public_network_access`)
+- Use `bool` variables with sensible defaults for feature flags (`public_network_access`)
 
 ## Security Rules
 - No secrets in code or tfvars

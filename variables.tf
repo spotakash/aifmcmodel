@@ -41,16 +41,6 @@ variable "public_network_access" {
 }
 
 # =============================================================================
-# Compute Instance (optional)
-# =============================================================================
-
-variable "create_compute_instance" {
-  description = "Whether to create a compute instance in the standard ML workspace"
-  type        = bool
-  default     = false
-}
-
-# =============================================================================
 # Online Endpoint & Deployment (HuggingFace Model)
 # =============================================================================
 

@@ -4,7 +4,7 @@
 # =============================================================================
 
 resource "time_sleep" "wait_for_project" {
-  depends_on      = [azapi_resource.ai_project]
+  depends_on      = [azurerm_ai_foundry_project.ai_project]
   create_duration = "120s"
 }
 
@@ -19,7 +19,7 @@ resource "azapi_resource" "online_endpoint" {
   type      = "Microsoft.MachineLearningServices/workspaces/onlineEndpoints@2025-01-01-preview"
   name      = local.endpoint_name
   location  = azurerm_resource_group.main.location
-  parent_id = azapi_resource.ai_project.id
+  parent_id = azurerm_ai_foundry_project.ai_project.id
 
   depends_on = [time_sleep.wait_for_project]
 
@@ -72,7 +72,7 @@ resource "azapi_resource" "model_deployment" {
       endpointComputeType       = "Managed"
       model                     = var.model_id
       instanceType              = local.resolved_instance_type
-      appInsightsEnabled        = false
+      appInsightsEnabled        = true
       egressPublicNetworkAccess = local.public_network_access
 
       requestSettings = {
