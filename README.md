@@ -1,6 +1,8 @@
-# Azure AI Foundry + HuggingFace GTE Embedding Model — Terraform Deployment
+# Azure AI Foundry + Custom Open Source Model from AI Foundry Model Catalog — Terraform Deployment
 
-This Terraform configuration reverse-engineers and codifies the existing Azure infrastructure for deploying a self-hosted **HuggingFace GTE embedding model** (`alibaba-nlp-gte-large-en-v1.5`) via Azure AI Foundry.
+This Terraform configuration codifies the existing Azure infrastructure for deploying a self-hosted Sample HuggingFace GTE embedding model **HuggingFace GTE embedding model** (`alibaba-nlp-gte-large-en-v1.5`) via Azure AI Foundry.
+
+This scenarion specifically cover CMK with Public Inbound Enabled and Public Outboud Enabled.
 
 ## Architecture
 
@@ -87,12 +89,12 @@ All resource names are derived from a single `project_name` variable via `locals
 | `main.tf` | Resource group + data sources |
 | `storage.tf` | Storage account with ML CORS rules |
 | `keyvault.tf` | Key Vault with deployer access policy |
-| `monitoring.tf` | Log Analytics + Application Insights |
+| `monitoring.tf` | Log Analytics + Application Insights + Diagnostic Settings |
 | `acr.tf` | Azure Container Registry |
 | `cmk.tf` | CMK Key Vault + RSA Key + User-Assigned Identity + RBAC (separate RG) |
 | `ai_hub.tf` | AI Foundry Hub (azurerm_ai_foundry, CMK-encrypted) |
 | `ai_project.tf` | AI Foundry Project (azurerm_ai_foundry_project) |
-| `endpoint.tf` | Online endpoint + HuggingFace model deployment (azapi) |
+| `endpoint.tf` | Online endpoint + model deployment from AI Foundry Model Catalog (azapi) |
 | `outputs.tf` | Key resource outputs |
 
 ## Usage
@@ -151,7 +153,22 @@ terraform destroy -auto-approve
 
 ### AI Foundry Hub & Project (Native azurerm)
 
-The Hub (`azurerm_ai_foundry`) and Project (`azurerm_ai_foundry_project`) use the native azurerm provider for full Terraform lifecycle support. Only the online endpoint and model deployment use azapi (no azurerm equivalent exists for managed online endpoints with HuggingFace registry model deployments).
+The Hub (`azurerm_ai_foundry`) and Project (`azurerm_ai_foundry_project`) use the native azurerm provider for full Terraform lifecycle support. Only the online endpoint and model deployment use azapi (no azurerm equivalent exists for managed online endpoints with model catalog registry deployments).
+
+### Customer-Managed Key (CMK) Encryption
+
+The AI Foundry Hub is encrypted with a customer-managed RSA 2048 key stored in a **separate Key Vault** (`cmk.tf`) in its own resource group (`<project>-cmk`). This requires:
+
+- **CMK Key Vault**: Purge-protected, RBAC-enabled (required by Azure for CMK workspaces)
+- **User-Assigned Identity**: Assigned `Key Vault Crypto User` + `Reader` roles on the CMK vault
+- **60s RBAC propagation wait**: Azure RBAC is eventually consistent; the Hub creation waits for roles to propagate
+- **Two Key Vaults**: The operational KV (`keyvault.tf`) stores Hub secrets/credentials; the CMK KV (`cmk.tf`) holds only the encryption key. These serve different purposes and use different auth models (access policies vs RBAC)
+
+> **Note:** CMK-enabled Hubs automatically create an **Azure-managed resource group** (e.g., `azureml-rg-hub-<name>-<guid>`) containing Cosmos DB, AI Search, and a Storage Account. These are fully managed by Azure and not in Terraform state.
+
+### Monitoring & Diagnostics
+
+Platform diagnostics are configured for Key Vault (audit logs), Storage Account (transaction metrics + blob read/write/delete logs), with all data flowing to the shared Log Analytics workspace. Model deployment inference telemetry flows to Application Insights (`appInsightsEnabled = true`).
 
 ### AI Foundry Project Properties
 
@@ -206,7 +223,10 @@ See [scripts/README.md](scripts/README.md) for full usage.
 | `SkuBasedEngineNotFound: Cpu` | GPU model on CPU SKU | Auto-mapped in `locals.tf`; or set GPU SKU in tfvars |
 | `Soft-deleted workspace exists` | Previous workspace in soft-delete | Auto-purged by `terraform_data` resources with 30s wait for Azure to complete purge |
 | `DeploymentName must be 3-32 chars` | Name too long | Shorten `deployment_name` in tfvars (validated at plan time) |
-| `CannotDeleteResource: nested resources` | Endpoint exists under project | Auto-handled — destroy-time provisioner on `ai_project` cleans up endpoints before deletion |
+| `CannotDeleteResource: nested resources` | Endpoint exists under project | Auto-handled — destroy-time provisioner on `ai_project` waits 90s for Azure cleanup after endpoint deletion |
+| `CMK keyvault purge protection` | CMK KV missing purge protection | CMK Key Vault must have `purge_protection_enabled = true` (Azure-enforced) |
+| `User assigned identity doesn't have enough permissions` | CMK identity lacks `vaults/read` | Identity needs both `Key Vault Crypto User` + `Reader` roles on CMK vault |
+| `soft_delete_retention_days cannot be modified` | Existing KV retention mismatch | Must destroy and recreate the KV — `soft_delete_retention_days` is immutable |
 
 ## Customization
 
