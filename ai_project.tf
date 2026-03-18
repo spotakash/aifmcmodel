@@ -36,13 +36,15 @@ resource "azurerm_ai_foundry_project" "ai_project" {
   depends_on = [terraform_data.purge_soft_deleted_ai_project]
 
   # ---------------------------------------------------------------------------
-  # Destroy-time provisioner: delete all child online endpoints (and their
-  # deployments) before Terraform deletes the project. Without this, Azure
-  # returns 409 CannotDeleteResource because nested resources still exist.
-  # The DELETE is async (202), so we poll until each endpoint is fully gone.
+  # Destroy-time provisioner: ensures all child online endpoints are fully
+  # removed before Azure deletes the project. Covers two scenarios:
+  # 1. Endpoints Terraform didn't delete (orphaned) — lists and deletes them
+  # 2. Endpoints Terraform already deleted — Azure needs time to fully process
+  #    the internal cleanup (eventual consistency), so we always wait 90s.
+  # Without this, Azure returns 409 CannotDeleteResource.
   # ---------------------------------------------------------------------------
   provisioner "local-exec" {
     when    = destroy
-    command = "bash -c 'endpoints=$(az rest --method GET --url \"https://management.azure.com${self.id}/onlineEndpoints?api-version=2025-01-01-preview\" --query \"value[].name\" -o tsv 2>&1 | grep -v \"^ERROR\" || true); for ep in $endpoints; do [ -z \"$ep\" ] && continue; echo \"Deleting online endpoint: $ep\"; az rest --method DELETE --url \"https://management.azure.com${self.id}/onlineEndpoints/$ep?api-version=2025-01-01-preview\" 2>/dev/null || true; echo \"Polling for $ep deletion (up to 6 min)...\"; for i in $(seq 1 36); do sleep 10; az rest --method GET --url \"https://management.azure.com${self.id}/onlineEndpoints/$ep?api-version=2025-01-01-preview\" 2>/dev/null || { echo \"Endpoint $ep deleted.\"; break; }; echo \"  still deleting $ep ($((i*10))s)...\"; done; done; true'"
+    command = "bash -c 'endpoints=$(az rest --method GET --url \"https://management.azure.com${self.id}/onlineEndpoints?api-version=2025-01-01-preview\" --query \"value[].name\" -o tsv 2>&1 | grep -v \"^ERROR\" || true); for ep in $endpoints; do [ -z \"$ep\" ] && continue; echo \"Deleting online endpoint: $ep\"; az rest --method DELETE --url \"https://management.azure.com${self.id}/onlineEndpoints/$ep?api-version=2025-01-01-preview\" 2>/dev/null || true; echo \"Polling for $ep deletion (up to 6 min)...\"; for i in $(seq 1 36); do sleep 10; az rest --method GET --url \"https://management.azure.com${self.id}/onlineEndpoints/$ep?api-version=2025-01-01-preview\" 2>/dev/null || { echo \"Endpoint $ep deleted.\"; break; }; echo \"  still deleting $ep ($((i*10))s)...\"; done; done; echo \"Waiting 90s for Azure internal cleanup...\"; sleep 90; true'"
   }
 }
