@@ -40,7 +40,7 @@ resource "azapi_resource" "online_endpoint" {
   ignore_missing_property   = true
 
   timeouts {
-    create = "10m"
+    create = "30m"
     delete = "10m"
   }
 

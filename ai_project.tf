@@ -16,13 +16,13 @@ resource "terraform_data" "purge_soft_deleted_ai_project" {
     command = "az rest --method DELETE --url 'https://management.azure.com/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.resource_group_name}/providers/Microsoft.MachineLearningServices/workspaces/${local.ai_project_name}?api-version=2024-04-01&forceToPurge=true' 2>/dev/null || true; sleep 30"
   }
 
-  depends_on = [azurerm_ai_foundry.ai_hub]
+  depends_on = [azapi_resource.ai_hub]
 }
 
 resource "azurerm_ai_foundry_project" "ai_project" {
   name               = local.ai_project_name
-  location           = azurerm_ai_foundry.ai_hub.location
-  ai_services_hub_id = azurerm_ai_foundry.ai_hub.id
+  location           = azapi_resource.ai_hub.location
+  ai_services_hub_id = azapi_resource.ai_hub.id
 
   friendly_name = local.ai_project_name
   description   = "AI Foundry Project for ${var.project_name}"
@@ -33,7 +33,10 @@ resource "azurerm_ai_foundry_project" "ai_project" {
 
   tags = local.tags
 
-  depends_on = [terraform_data.purge_soft_deleted_ai_project]
+  depends_on = [
+    terraform_data.purge_soft_deleted_ai_project,
+    azapi_resource_action.provision_managed_network,
+  ]
 
   # ---------------------------------------------------------------------------
   # Destroy-time provisioner: ensures all child online endpoints are fully
