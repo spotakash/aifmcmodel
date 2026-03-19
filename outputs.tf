@@ -82,12 +82,12 @@ output "cmk_identity_id" {
 # --- AI Foundry Hub ---
 output "ai_hub_id" {
   description = "ID of the AI Foundry Hub"
-  value       = azurerm_ai_foundry.ai_hub.id
+  value       = azapi_resource.ai_hub.id
 }
 
 output "ai_hub_discovery_url" {
   description = "Discovery URL of the AI Foundry Hub"
-  value       = azurerm_ai_foundry.ai_hub.discovery_url
+  value       = azapi_resource.ai_hub.output.properties.discoveryUrl
 }
 
 # --- AI Foundry Project ---
