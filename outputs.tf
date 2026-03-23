@@ -87,7 +87,7 @@ output "ai_hub_id" {
 
 output "ai_hub_discovery_url" {
   description = "Discovery URL of the AI Foundry Hub"
-  value       = azapi_resource.ai_hub.output.properties.discoveryUrl
+  value       = try(azapi_resource.ai_hub.output.properties.discoveryUrl, null)
 }
 
 # --- AI Foundry Project ---

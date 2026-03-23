@@ -1,8 +1,9 @@
 # =============================================================================
 # AI Foundry Hub — Central hub workspace
 #
-# Uses azurerm_ai_foundry (native provider support).
-# The Hub owns shared resources (Storage, KV, ACR, App Insights).
+# Uses azapi_resource (Microsoft.MachineLearningServices/workspaces) with
+# kind=Hub. Provides CMK encryption, AllowOnlyApprovedOutbound managed
+# network, and FQDN outbound rules for HuggingFace model downloads.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -18,45 +19,6 @@ resource "terraform_data" "purge_soft_deleted_ai_hub" {
 
   depends_on = [azurerm_resource_group.main]
 }
-
-# resource "azurerm_ai_foundry" "ai_hub" {
-#   name                = local.ai_hub_name
-#   location            = azurerm_resource_group.main.location
-#   resource_group_name = azurerm_resource_group.main.name
-#   storage_account_id  = azurerm_storage_account.ml.id
-#   key_vault_id        = azurerm_key_vault.ml.id
-
-#   application_insights_id = azurerm_application_insights.ml.id
-#   container_registry_id   = azurerm_container_registry.ml.id
-
-#   friendly_name         = local.ai_hub_name
-#   description           = "AI Foundry Hub for ${var.project_name}"
-#   public_network_access = local.public_network_access
-
-#   managed_network {
-#     isolation_mode = "AllowOnlyApprovedOutbound"
-#   }
-
-#   identity {
-#     type         = "SystemAssigned, UserAssigned"
-#     identity_ids = [azurerm_user_assigned_identity.cmk.id]
-#   }
-
-#   encryption {
-#     key_id                    = azurerm_key_vault_key.cmk.id
-#     key_vault_id              = azurerm_key_vault.cmk.id
-#     user_assigned_identity_id = azurerm_user_assigned_identity.cmk.id
-#   }
-
-#   primary_user_assigned_identity = azurerm_user_assigned_identity.cmk.id
-
-#   tags = local.tags
-
-#   depends_on = [
-#     terraform_data.purge_soft_deleted_ai_hub,
-#     time_sleep.wait_for_cmk_rbac,
-#   ]
-# }
 
 resource "azapi_resource" "ai_hub" {
   name      = local.ai_hub_name
@@ -109,6 +71,8 @@ resource "azapi_resource" "ai_hub" {
   lifecycle {
     ignore_changes = [
       body.properties.associatedWorkspaces,
+      body.properties.hbiWorkspace,
+      body.properties.publicNetworkAccess,
     ]
   }
 
@@ -207,6 +171,34 @@ resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "huggin
   depends_on       = [time_sleep.wait_for_hub_rbac]
 }
 
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "huggingface_co" {
+  name             = "allow-huggingface-co"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "huggingface.co"
+  depends_on       = [time_sleep.wait_for_hub_rbac]
+}
+
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "huggingface_co_wildcard" {
+  name             = "allow-huggingface-co-wildcard"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "*.huggingface.co"
+  depends_on       = [time_sleep.wait_for_hub_rbac]
+}
+
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "xethub_hf_co" {
+  name             = "allow-xethub-hf-co"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "xethub.hf.co"
+  depends_on       = [time_sleep.wait_for_hub_rbac]
+}
+
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "xethub_hf_co_wildcard" {
+  name             = "allow-xethub-hf-co-wildcard"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "*.xethub.hf.co"
+  depends_on       = [time_sleep.wait_for_hub_rbac]
+}
+
 # -----------------------------------------------------------------------------
 # Provision managed network — AllowOnlyApprovedOutbound creates a managed VNet.
 # FQDN outbound rules trigger Azure Firewall (Standard SKU) creation.
@@ -234,5 +226,9 @@ resource "azapi_resource_action" "provision_managed_network" {
     azurerm_machine_learning_workspace_network_outbound_rule_fqdn.cloudflare_docker,
     azurerm_machine_learning_workspace_network_outbound_rule_fqdn.auth0,
     azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co_wildcard,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co_wildcard,
   ]
 }
