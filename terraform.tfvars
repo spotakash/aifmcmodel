@@ -5,7 +5,7 @@
 # SKU is auto-selected based on model_id (see locals.tf model_sku_map).
 # =============================================================================
 # For Testing Purpose don't keep on using same name as it may create pooling error from old AML Workspace 
-project_name = "cmldg" #Change this for each new deployment to avoid pooling errors
+project_name = "gtcm" #Change this for each new deployment to avoid pooling errors
 
 # --- Model Deployment ---
 # Option A: GTE Large EN v1.5 (CPU OK — auto-selects Standard_DS5_v2)

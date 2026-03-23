@@ -1,43 +1,69 @@
 # Azure AI Foundry + Custom Open Source Model from AI Foundry Model Catalog — Terraform Deployment
 
-This Terraform configuration codifies the existing Azure infrastructure for deploying a self-hosted Sample HuggingFace GTE embedding model **HuggingFace GTE embedding model** (`alibaba-nlp-gte-large-en-v1.5`) via Azure AI Foundry.
-
-This scenarion specifically cover CMK with Public Inbound Enabled and Public Outboud Enabled.
+This Terraform configuration deploys a self-hosted **HuggingFace GTE embedding model** (`alibaba-nlp-gte-large-en-v1.5`) via Azure AI Foundry with CMK encryption and AllowOnlyApprovedOutbound managed network isolation.
 
 ## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│     CMK Resource Group (<project>-cmk)                        │
-│     ┌──────────────────────────────────────────────┐   │
-│     │ Key Vault (purge-protected, RBAC)              │   │
-│     │  └─ RSA 2048 Key (CMK for AI Hub encryption)   │   │
-│     │ User-Assigned Identity (Crypto User on KV)    │   │
-│     └──────────────────────────────────────────────┘   │
+│  CMK Resource Group (<project>-cmk)                          │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ Key Vault (purge-protected, RBAC)                      │  │
+│  │  └─ RSA 2048 Key (CMK for AI Hub encryption)           │  │
+│  │ User-Assigned Identity (Crypto User + Reader on KV)    │  │
+│  └────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
-│     Main Resource Group (<project>)                           │
+│  Main Resource Group (<project>)                             │
 │                                                              │
 │  ┌─────────────┐  ┌──────────┐  ┌─────────────────────────┐ │
 │  │ Storage Acct │  │ Key Vault│  │ Log Analytics + AppIns  │ │
 │  └──────┬──────┘  └────┬─────┘  └────────────┬────────────┘ │
 │         │              │                      │              │
 │  ┌──────┴──────────────┴──────────────────────┴───────────┐  │
-│  │      AI Foundry Hub (azurerm_ai_foundry, CMK-encrypted) │  │
-│  │  ┌───────────────────────────────────────────────────┐  │  │
-│  │  │   AI Foundry Project (azurerm_ai_foundry_project) │  │  │
-│  │  │  ┌─────────────────────────────────────────────┐  │  │  │
-│  │  │  │   Managed Online Endpoint (azapi)            │  │  │  │
-│  │  │  │   └─ Model Deployment (azapi)                │  │  │  │
-│  │  │  └─────────────────────────────────────────────┘  │  │  │
-│  │  └───────────────────────────────────────────────────┘  │  │
+│  │  AI Foundry Hub (azapi, CMK-encrypted)                 │  │
+│  │                                                        │  │
+│  │  ┌ AllowOnlyApprovedOutbound Managed VNet ───────────┐ │  │
+│  │  │                                                    │ │  │
+│  │  │  Private Link Endpoints (auto-created, require     │ │  │
+│  │  │  auto-approval via Network Connection Approver):   │ │  │
+│  │  │   ├─ PE → Storage Account                         │ │  │
+│  │  │   ├─ PE → Key Vault                               │ │  │
+│  │  │   ├─ PE → Container Registry (Premium required)   │ │  │
+│  │  │   └─ PE → Application Insights                    │ │  │
+│  │  │                                                    │ │  │
+│  │  │  Azure Firewall (Standard, auto-created):          │ │  │
+│  │  │   FQDN Outbound Rules:                            │ │  │
+│  │  │   ├─ docker.io  *.docker.io  *.docker.com         │ │  │
+│  │  │   ├─ production.cloudflare.docker.com              │ │  │
+│  │  │   ├─ cdn.auth0.com                                │ │  │
+│  │  │   ├─ huggingface.co  *.huggingface.co             │ │  │
+│  │  │   ├─ cdn-lfs.huggingface.co                       │ │  │
+│  │  │   └─ xethub.hf.co  *.xethub.hf.co                │ │  │
+│  │  │                                                    │ │  │
+│  │  │  Auto-allowed (built-in rules):                    │ │  │
+│  │  │   AAD, ARM, Azure ML, MCR, Azure Front Door       │ │  │
+│  │  └────────────────────────────────────────────────────┘ │  │
+│  │                                                        │  │
+│  │  ┌───────────────────────────────────────────────────┐ │  │
+│  │  │  AI Foundry Project (azurerm_ai_foundry_project)  │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐  │ │  │
+│  │  │  │  Managed Online Endpoint (azapi)             │  │ │  │
+│  │  │  │  └─ Model Deployment (azapi, HuggingFace)    │  │ │  │
+│  │  │  └─────────────────────────────────────────────┘  │ │  │
+│  │  └───────────────────────────────────────────────────┘ │  │
 │  └────────────────────────────────────────────────────────┘  │
 │                                                              │
-│  ┌────────────┐                                                │
-│  │    ACR     │                                                │
-│  └────────────┘                                                │
+│  ┌──────────────┐                                            │
+│  │  ACR (Premium)│                                           │
+│  └──────────────┘                                            │
 └──────────────────────────────────────────────────────────────┘
+
+Microsoft-Managed Subscription (enableServiceSideCMKEncryption = true):
+  Cosmos DB, AI Search, Storage Account for workspace metadata
+  are created and managed entirely by Microsoft in their own
+  subscription — not visible in customer's resource groups.
 ```
 
 ## Prerequisites
@@ -52,8 +78,10 @@ This scenarion specifically cover CMK with Public Inbound Enabled and Public Out
 |---|---|---|
 | Resource Group, Storage, Key Vault, ACR, Log Analytics, App Insights | `azurerm ~> 4.0` | Fully supported, stable |
 | CMK Key Vault, Key, User-Assigned Identity, RBAC | `azurerm` | CMK encryption for AI Hub |
-| AI Foundry Hub | `azurerm` | Supported via `azurerm_ai_foundry` (CMK-encrypted) |
+| AI Foundry Hub | `azapi ~> 2.0` | CMK + managed network + `kind=Hub` via ARM API |
 | AI Foundry Project | `azurerm` | Supported via `azurerm_ai_foundry_project` |
+| FQDN Outbound Rules | `azurerm` | Managed network egress rules via `azurerm_machine_learning_workspace_network_outbound_rule_fqdn` |
+| Managed Network Provisioning | `azapi` | `provisionManagedNetwork` action (LRO) |
 | Online Endpoint + Deployment | `azapi ~> 2.0` | HuggingFace registry model + traffic routing (no azurerm support) |
 | Sleep timer | `time ~> 0.11` | Wait for project services to initialize |
 
@@ -92,7 +120,7 @@ All resource names are derived from a single `project_name` variable via `locals
 | `monitoring.tf` | Log Analytics + Application Insights + Diagnostic Settings |
 | `acr.tf` | Azure Container Registry |
 | `cmk.tf` | CMK Key Vault + RSA Key + User-Assigned Identity + RBAC (separate RG) |
-| `ai_hub.tf` | AI Foundry Hub (azurerm_ai_foundry, CMK-encrypted) |
+| `ai_hub.tf` | AI Foundry Hub (azapi, CMK-encrypted, managed network + FQDN rules) |
 | `ai_project.tf` | AI Foundry Project (azurerm_ai_foundry_project) |
 | `endpoint.tf` | Online endpoint + model deployment from AI Foundry Model Catalog (azapi) |
 | `outputs.tf` | Key resource outputs |
@@ -151,9 +179,55 @@ terraform destroy -auto-approve
 - **Log Analytics saved searches & tables** — default platform tables
 - **Storage containers & file shares** — auto-created by ML workspaces
 
-### AI Foundry Hub & Project (Native azurerm)
+### AI Foundry Hub (azapi) & Project (azurerm)
 
-The Hub (`azurerm_ai_foundry`) and Project (`azurerm_ai_foundry_project`) use the native azurerm provider for full Terraform lifecycle support. Only the online endpoint and model deployment use azapi (no azurerm equivalent exists for managed online endpoints with model catalog registry deployments).
+The Hub uses the `azapi` provider (`Microsoft.MachineLearningServices/workspaces@2025-01-01-preview` with `kind=Hub`) for full ARM API control over CMK encryption, managed network isolation, and FQDN outbound rules. The Project (`azurerm_ai_foundry_project`) uses the native azurerm provider. Only the online endpoint and model deployment use azapi (no azurerm equivalent exists for managed online endpoints with model catalog registry deployments).
+
+### Managed Network & FQDN Outbound Rules
+
+The Hub uses `AllowOnlyApprovedOutbound` managed network isolation. All egress is blocked unless explicitly allowed via FQDN outbound rules. The following domains are required for HuggingFace model deployments:
+
+| Rule | FQDN | Purpose |
+|---|---|---|
+| Docker Hub | `docker.io`, `*.docker.io`, `*.docker.com` | Container image pull |
+| Cloudflare CDN | `production.cloudflare.docker.com` | Docker image layer CDN |
+| Auth0 | `cdn.auth0.com` | Docker Hub authentication |
+| HuggingFace | `huggingface.co`, `*.huggingface.co` | Model config + tokenizer downloads |
+| HuggingFace LFS | `cdn-lfs.huggingface.co` | Large file storage (legacy) |
+| HuggingFace Xet | `xethub.hf.co`, `*.xethub.hf.co` | Model weights (safetensors, ONNX) via Xet storage |
+
+FQDN rules trigger Azure Firewall (Standard SKU) creation. The managed network is explicitly provisioned via `azapi_resource_action` before endpoints are created.
+
+### RBAC & Access Policies
+
+All role assignments and access policies required by this deployment:
+
+#### RBAC Role Assignments
+
+| Identity | Role | Scope | Purpose | File |
+|---|---|---|---|---|
+| **Deployer** (current user) | Key Vault Administrator | CMK Key Vault | Create/manage the CMK encryption key | `cmk.tf` |
+| **CMK UAI** (User-Assigned Identity) | Key Vault Crypto User | CMK Key Vault | Wrap/unwrap the CMK key for Hub encryption | `cmk.tf` |
+| **CMK UAI** | Reader | CMK Key Vault | `vaults/read` — required to discover the KV resource | `cmk.tf` |
+| **Hub System Identity** | Azure AI Enterprise Network Connection Approver | Main Resource Group | Auto-approve Private Link endpoints during managed network provisioning | `ai_hub.tf` |
+| **CMK UAI** | Azure AI Enterprise Network Connection Approver | Main Resource Group | Same PE approval — Azure uses primary UAI for network ops | `ai_hub.tf` |
+| **CMK UAI** | Contributor | Main Resource Group | Resource-level read/write (e.g. `registries/read`) needed for PE approval | `ai_hub.tf` |
+
+> **Why both System + UAI get Network Connection Approver?** When `primaryUserAssignedIdentity` is set, Azure uses that identity for workspace operations. However, some internal operations still use the System identity. Both need PE approval permissions.
+
+> **RBAC propagation:** Azure RBAC is eventually consistent. A 60s wait (`time_sleep.wait_for_cmk_rbac`) is added after CMK role assignments, and a 120s wait (`time_sleep.wait_for_hub_rbac`) after Hub role assignments, before dependent resources are created.
+
+#### Key Vault Access Policies (Operational KV)
+
+The operational Key Vault (`keyvault.tf`) uses access policies (not RBAC):
+
+| Identity | Key Permissions | Secret Permissions | Certificate Permissions | Purpose |
+|---|---|---|---|---|
+| **Deployer** (current user) | Get, List, Create, Delete, Update, Purge, Recover | Get, List, Set, Delete, Purge, Recover | Get, List, Create, Delete, Update, Purge, Recover | Full deployer access |
+| **Hub System Identity** | Get, List, Create, Delete, Update, Recover, WrapKey, UnwrapKey | Get, List, Set, Delete, Recover | Get, List, Create, Delete, Update, Recover | Workspace operations (managed network blocks auto-creation) |
+| **CMK UAI** | Get, List, Create, Delete, Update, Recover, WrapKey, UnwrapKey | Get, List, Set, Delete, Recover | Get, List, Create, Delete, Update, Recover | Primary identity for workspace operations |
+
+> **Why explicit KV access policies?** With `AllowOnlyApprovedOutbound` managed network, Azure ML cannot auto-create its own KV access policies. These must be granted explicitly after Hub creation.
 
 ### Customer-Managed Key (CMK) Encryption
 
@@ -164,7 +238,7 @@ The AI Foundry Hub is encrypted with a customer-managed RSA 2048 key stored in a
 - **60s RBAC propagation wait**: Azure RBAC is eventually consistent; the Hub creation waits for roles to propagate
 - **Two Key Vaults**: The operational KV (`keyvault.tf`) stores Hub secrets/credentials; the CMK KV (`cmk.tf`) holds only the encryption key. These serve different purposes and use different auth models (access policies vs RBAC)
 
-> **Note:** CMK-enabled Hubs automatically create an **Azure-managed resource group** (e.g., `azureml-rg-hub-<name>-<guid>`) containing Cosmos DB, AI Search, and a Storage Account. These are fully managed by Azure and not in Terraform state.
+> **Note:** With `enableServiceSideCMKEncryption = true`, the workspace's backing Cosmos DB, AI Search, and Storage Account are created and managed entirely by Microsoft in their own subscription — they do not appear in any customer resource group. This is the server-side CMK encryption model. Without this flag, Azure creates these in a customer-visible managed resource group (`azureml-rg-hub-<name>-<guid>`).
 
 ### Monitoring & Diagnostics
 
@@ -227,6 +301,9 @@ See [scripts/README.md](scripts/README.md) for full usage.
 | `CMK keyvault purge protection` | CMK KV missing purge protection | CMK Key Vault must have `purge_protection_enabled = true` (Azure-enforced) |
 | `User assigned identity doesn't have enough permissions` | CMK identity lacks `vaults/read` | Identity needs both `Key Vault Crypto User` + `Reader` roles on CMK vault |
 | `soft_delete_retention_days cannot be modified` | Existing KV retention mismatch | Must destroy and recreate the KV — `soft_delete_retention_days` is immutable |
+| `User container has crashed` on model deployment | Model weight download blocked by managed network | Add FQDN rules for `huggingface.co`, `*.huggingface.co`, `xethub.hf.co`, `*.xethub.hf.co` |
+| `Provider produced inconsistent result` on FQDN rule | azurerm provider bug — Azure creates rule but read-back is empty | Re-run `terraform apply` — rules will be recreated |
+| `InternalServerError` on Hub update | Azure rejects in-place changes to `hbiWorkspace` or `publicNetworkAccess` | Added to `lifecycle { ignore_changes }` — Terraform won't attempt the update |
 
 ## Customization
 
