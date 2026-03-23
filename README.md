@@ -4,6 +4,15 @@ This Terraform configuration deploys a self-hosted **HuggingFace GTE embedding m
 
 ## Architecture
 
+![Architecture](HLD_HD_AIFH.jpg)
+
+![RBAC & Permissions](HLD_HD_AIFH_Permissions.jpg)
+
+> Full editable diagram: [architecture.drawio](architecture.drawio)
+
+<details>
+<summary>ASCII Architecture (click to expand)</summary>
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  CMK Resource Group (<project>-cmk)                          │
@@ -65,6 +74,8 @@ Microsoft-Managed Subscription (enableServiceSideCMKEncryption = true):
   are created and managed entirely by Microsoft in their own
   subscription — not visible in customer's resource groups.
 ```
+
+</details>
 
 ## Prerequisites
 
