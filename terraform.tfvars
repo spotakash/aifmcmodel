@@ -22,4 +22,4 @@ model_id        = "azureml://registries/HuggingFace/models/alibaba-nlp-gte-large
 public_network_access = false
 
 # --- Jumpbox VM (only used when public_network_access = false) ---
-jumpbox_admin_password = "P@55w0rd@9876!"
+jumpbox_admin_password = "YourOwnPassword"
