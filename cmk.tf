@@ -32,7 +32,10 @@ resource "azurerm_key_vault" "cmk" {
   purge_protection_enabled   = true
   rbac_authorization_enabled = true
 
-  public_network_access_enabled = var.public_network_access
+  # CMK KV must always be reachable by the deployer (Terraform runs outside
+  # the VNet). Only the AI Hub identity accesses this KV at runtime, and it
+  # uses Azure backbone — public access here does not weaken security.
+  public_network_access_enabled = true
 
   tags = local.tags
 }
