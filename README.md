@@ -313,6 +313,7 @@ See [scripts/README.md](scripts/README.md) for full usage.
 | `User assigned identity doesn't have enough permissions` | CMK identity lacks `vaults/read` | Identity needs both `Key Vault Crypto User` + `Reader` roles on CMK vault |
 | `soft_delete_retention_days cannot be modified` | Existing KV retention mismatch | Must destroy and recreate the KV — `soft_delete_retention_days` is immutable |
 | `User container has crashed` on model deployment | Model weight download blocked by managed network | Add FQDN rules for `huggingface.co`, `*.huggingface.co`, `xethub.hf.co`, `*.xethub.hf.co` |
+| `Can't delete deployment with non-zero traffic` | Deployment has 100% traffic weight; Azure blocks deletion | Zero traffic first: `az rest --method PUT --url ".../onlineEndpoints/ep-name?api-version=2025-01-01-preview" --body '{"location":"...","identity":{"type":"SystemAssigned"},"kind":"Managed","properties":{"authMode":"Key","traffic":{}}}'`, then re-run destroy |
 | `Provider produced inconsistent result` on FQDN rule | azurerm provider bug — Azure creates rule but read-back is empty | Re-run `terraform apply` — rules will be recreated |
 | `InternalServerError` on Hub update | Azure rejects in-place changes to `hbiWorkspace` or `publicNetworkAccess` | Added to `lifecycle { ignore_changes }` — Terraform won't attempt the update |
 
