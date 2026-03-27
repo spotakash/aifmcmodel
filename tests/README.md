@@ -60,29 +60,29 @@ az login                          # or configure managed identity
   How do you want to connect?
 
   [1] Enter inference target URI directly
-      (e.g. https://ak1-gte-en.australiaeast.inference.ml.azure.com/v1/embeddings)
+      (e.g. https://<endpoint-name>.<region>.inference.ml.azure.com/v1/embeddings)
 
   [2] Enter workspace details (subscription, RG, AI Foundry project, endpoint)
       -> inference URI will be resolved automatically via Azure ML SDK
 
   Choice (1/2): 1
 
-  Inference Target URI: https://ak1-gte-en.australiaeast.inference.ml.azure.com/v1/embeddings
-  Endpoint name (auto-detected): ak1-gte-en
+  Inference Target URI: https://my-endpoint.australiaeast.inference.ml.azure.com/v1/embeddings
+  Endpoint name (auto-detected): my-endpoint
   Payload format (auto-detected): embeddings
 
   Workspace details for Key/AML token auto-retrieval:
 
-  Subscription ID  [e.g. 7cbe1a5d-...]: 7cbe1a5d-...
-  Resource Group   [e.g. Delete-AEA]: Delete-AEA
-  AI Foundry Project name [e.g. Projec-1]: Projec-1
+  Subscription ID  [e.g. 00000000-...]: 00000000-...
+  Resource Group   [e.g. rg-my-project]: rg-my-project
+  AI Foundry Project name [e.g. my-ai-project]: my-ai-project
 --------------------------------------------------
 
 Connecting to AI Foundry project workspace...
   Connected.
 
 Resolving source IP for Azure log correlation...
-  Source IP: 203.0.113.42
+  Source IP: <your-public-ip>
 
 ==================================================
   Select Authentication Method
@@ -109,7 +109,7 @@ Resolving source IP for Azure log correlation...
   Retrieving endpoint key via Azure ML SDK...
   Key (first 8 chars): abc12345...
 
-  Calling endpoint: https://ak1-gte-en.australiaeast.inference.ml.azure.com/v1/embeddings
+  Calling endpoint: https://my-endpoint.australiaeast.inference.ml.azure.com/v1/embeddings
   Payload: 3 input string(s)
 
 --- Response Body ---
@@ -120,9 +120,9 @@ Resolving source IP for Azure log correlation...
   TEST REPORT
 ============================================================
   Timestamp      : 2026-03-25T10:30:00+00:00
-  Source IP      : 203.0.113.42
-  Endpoint       : ak1-gte-en
-  Inference URI  : https://ak1-gte-en.australiaeast.inference.ml.azure.com/v1/embeddings
+  Source IP      : <your-public-ip>
+  Endpoint       : my-endpoint
+  Inference URI  : https://my-endpoint.australiaeast.inference.ml.azure.com/v1/embeddings
   Auth Method    : KEY
   Auth Mode Set  : Key
   Input Count    : 3
@@ -132,7 +132,7 @@ Resolving source IP for Azure log correlation...
   MS Request ID  : xyz-456
 ============================================================
 
-  Use Source IP '203.0.113.42' to filter Azure Monitor / App Insights logs.
+  Use Source IP '<your-public-ip>' to filter Azure Monitor / App Insights logs.
   Use Request ID to trace this specific request in endpoint logs.
 
   [PASS] Endpoint call succeeded.
