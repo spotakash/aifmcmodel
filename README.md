@@ -4,9 +4,9 @@ This Terraform configuration deploys a self-hosted **HuggingFace GTE embedding m
 
 ## Architecture
 
-![Architecture](HLD_HD_AIFH.jpg)
+![Architecture](HLD_HD_AIFHv2.jpg)
 
-![RBAC & Permissions](HLD_HD_AIFH_Permissions.jpg)
+![RBAC & Permissions](HLD_HD_AIFH_Permissionsv2.jpg)
 
 > Full editable diagram: [architecture.drawio](architecture.drawio)
 
@@ -67,6 +67,21 @@ This Terraform configuration deploys a self-hosted **HuggingFace GTE embedding m
 │  ┌──────────────┐                                            │
 │  │  ACR (Premium)│                                           │
 │  └──────────────┘                                            │
+│                                                              │
+│  ┌─── Customer VNet (conditional: private mode only) ──────┐ │
+│  │                                                          │ │
+│  │  ┌─ AzureBastionSubnet /26 ─┐ ┌─ snet-PE /27 ────────┐ │ │
+│  │  │  Azure Bastion (Standard) │ │  PE → AI Hub          │ │ │
+│  │  └───────────────────────────┘ │  (amlworkspace)       │ │ │
+│  │                                └───────────────────────┘ │ │
+│  │  ┌─ snet-jumpbox /29 ───────┐ ┌─ snet-spare /24 ──────┐ │ │
+│  │  │  Data Science VM (Win22)  │ │  (reserved)           │ │ │
+│  │  │  No Public IP             │ └───────────────────────┘ │ │
+│  │  └───────────────────────────┘                           │ │
+│  │                                                          │ │
+│  │  DNS: privatelink.api.azureml.ms                         │ │
+│  │       privatelink.notebooks.azure.net                    │ │
+│  └──────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────┘
 
 Microsoft-Managed Subscription (enableServiceSideCMKEncryption = true):
@@ -94,6 +109,8 @@ Microsoft-Managed Subscription (enableServiceSideCMKEncryption = true):
 | FQDN Outbound Rules | `azurerm` | Managed network egress rules via `azurerm_machine_learning_workspace_network_outbound_rule_fqdn` |
 | Managed Network Provisioning | `azapi` | `provisionManagedNetwork` action (LRO) |
 | Online Endpoint + Deployment | `azapi ~> 2.0` | HuggingFace registry model + traffic routing (no azurerm support) |
+| VNet, Subnets, Bastion, PE, DNS Zones | `azurerm` | Conditional private networking stack (count-gated on `public_network_access`) |
+| Data Science VM (Jumpbox) | `azurerm` | Windows Server 2022 DSVM — no marketplace plan required |
 | Sleep timer | `time ~> 0.11` | Wait for project services to initialize |
 
 ## Naming Convention
@@ -113,6 +130,11 @@ All resource names are derived from a single `project_name` variable via `locals
 | CMK Key Vault | `kv-<safe_prefix>-cmk` | `kv-akgte15-cmk` |
 | CMK Key | `cmk-<safe_prefix>` | `cmk-akgte15` |
 | CMK Identity | `id-<safe_prefix>-cmk` | `id-akgte15-cmk` |
+| VNet | `vnet-<safe_prefix>` | `vnet-akgte15` |
+| Bastion Host | `bas-<safe_prefix>` | `bas-akgte15` |
+| Bastion PIP | `pip-bas-<safe_prefix>` | `pip-bas-akgte15` |
+| Jumpbox VM | `vm-<safe_prefix>-dsvm` | `vm-akgte15-dsvm` |
+| Private Endpoint (Hub) | `pe-<safe_prefix>-hub` | `pe-akgte15-hub` |
 
 > **Note:** If `project_name` starts with a digit (e.g. `1503ak`), a `p` prefix is auto-added (`safe_prefix = "p1503ak"`) to satisfy Azure naming rules that require names to start with a letter.
 
@@ -134,6 +156,10 @@ All resource names are derived from a single `project_name` variable via `locals
 | `ai_hub.tf` | AI Foundry Hub (azapi, CMK-encrypted, managed network + FQDN rules) |
 | `ai_project.tf` | AI Foundry Project (azurerm_ai_foundry_project) |
 | `endpoint.tf` | Online endpoint + model deployment from AI Foundry Model Catalog (azapi) |
+| `networking.tf` | Virtual Network + Subnets (conditional on private mode) |
+| `bastion.tf` | Azure Bastion Standard SKU (conditional on private mode) |
+| `private_endpoint.tf` | Private Endpoint + Private DNS Zones for AI Hub (conditional on private mode) |
+| `jumpbox.tf` | Data Science VM jumpbox — Windows Server 2022 (conditional on private mode) |
 | `outputs.tf` | Key resource outputs |
 
 ## Usage
@@ -175,9 +201,13 @@ terraform destroy -auto-approve
 | `model_id` | Yes | — | Azure ML registry model URI |
 | `location` | No | `australiaeast` | Azure region |
 | `environment` | No | `dev` | Environment tag |
-| `public_network_access` | No | `true` | Enable/disable public access on all resources |
+| `public_network_access` | No | `true` | `true` = public mode (no VNet resources), `false` = private mode (deploys VNet, Bastion, PE, Jumpbox) |
 | `deployment_instance_type` | No | `Standard_DS5_v2` | VM size for model serving |
 | `deployment_instance_count` | No | `1` | Number of serving instances |
+| `vnet_address_space` | No | `10.0.0.0/22` | VNet address space (private mode only) |
+| `jumpbox_admin_username` | No | `azureadmin` | Jumpbox VM admin username (private mode only) |
+| `jumpbox_admin_password` | Yes* | `null` | Jumpbox VM admin password (*required when `public_network_access = false`) |
+| `jumpbox_vm_size` | No | `Standard_D4s_v5` | Jumpbox VM size — 4 vCPU, 16 GB RAM (private mode only) |
 
 ## Key Design Decisions
 
@@ -316,8 +346,87 @@ See [scripts/README.md](scripts/README.md) for full usage.
 | `Can't delete deployment with non-zero traffic` | Deployment has 100% traffic weight; Azure blocks deletion | Zero traffic first: `az rest --method PUT --url ".../onlineEndpoints/ep-name?api-version=2025-01-01-preview" --body '{"location":"...","identity":{"type":"SystemAssigned"},"kind":"Managed","properties":{"authMode":"Key","traffic":{}}}'`, then re-run destroy |
 | `Provider produced inconsistent result` on FQDN rule | azurerm provider bug — Azure creates rule but read-back is empty | Re-run `terraform apply` — rules will be recreated |
 | `InternalServerError` on Hub update | Azure rejects in-place changes to `hbiWorkspace` or `publicNetworkAccess` | Added to `lifecycle { ignore_changes }` — Terraform won't attempt the update |
+| CMK KV `Forbidden` / `ForbiddenByConnection` | CMK Key Vault `public_network_access` set to `false` — deployer blocked | CMK KV must always have `public_network_access_enabled = true` (already fixed in `cmk.tf`) |
+| DSVM `ResourcePurchaseValidationFailed` | `plan` block included but image doesn't require it | Remove `plan` block and `azurerm_marketplace_agreement` — `dsvm-win-2022` doesn't need them |
+| `EgressPublicNetworkAccess no longer supported` | `egressPublicNetworkAccess` set on deployment with managed VNet workspace | Remove `egressPublicNetworkAccess` from model deployment body — managed network controls egress |
 
 ## Customization
+
+### Private Endpoint Mode (Inbound Private Access)
+
+Set `public_network_access = false` in `terraform.tfvars` to automatically deploy a full private networking stack. Set `public_network_access = true` (default) to skip all VNet resources and use public access.
+
+**What gets deployed in private mode:**
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Main Resource Group (<project>)                             │
+│                                                              │
+│  ┌─────────────────── VNet (10.0.0.0/22) ─────────────────┐ │
+│  │                                                         │ │
+│  │  ┌─────────────────────────────────────┐                │ │
+│  │  │ AzureBastionSubnet (/26, 59 usable) │                │ │
+│  │  │  └─ Azure Bastion (Standard SKU)    │                │ │
+│  │  └─────────────────────────────────────┘                │ │
+│  │                                                         │ │
+│  │  ┌─────────────────────────────────────┐                │ │
+│  │  │ snet-private-endpoint (/27, 27 IPs) │                │ │
+│  │  │  └─ PE → AI Foundry Hub             │                │ │
+│  │  │      (subresource: amlworkspace)    │                │ │
+│  │  └─────────────────────────────────────┘                │ │
+│  │                                                         │ │
+│  │  ┌─────────────────────────────────────┐                │ │
+│  │  │ snet-jumpbox (/29, 3 usable)        │                │ │
+│  │  │  └─ Data Science VM (Win 2022)      │                │ │
+│  │  │     No public IP, Bastion-only      │                │ │
+│  │  └─────────────────────────────────────┘                │ │
+│  │                                                         │ │
+│  │  ┌─────────────────────────────────────┐                │ │
+│  │  │ snet-spare (/24, 251 usable)        │                │ │
+│  │  │  (reserved for future workloads)    │                │ │
+│  │  └─────────────────────────────────────┘                │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  Private DNS Zones:                                          │
+│   ├─ privatelink.api.azureml.ms      (workspace + scoring)   │
+│   └─ privatelink.notebooks.azure.net (notebooks)             │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Subnet sizing rationale (per Microsoft guidance):**
+
+| Subnet | CIDR | Total IPs | Usable | Reason |
+|---|---|---|---|---|
+| AzureBastionSubnet | `/26` | 64 | 59 | Azure-mandated minimum ([docs](https://learn.microsoft.com/en-us/azure/bastion/configuration-settings#subnet)) |
+| snet-private-endpoint | `/27` | 32 | 27 | Room for Hub PE + future PEs |
+| snet-jumpbox | `/29` | 8 | 3 | Smallest usable subnet — 1 VM only |
+| snet-spare | `/24` | 256 | 251 | Reserved for future workloads |
+
+**Switching between modes:**
+
+```hcl
+# terraform.tfvars
+
+# Public mode (default) — no VNet resources
+public_network_access = true
+
+# Private mode — deploys VNet, Bastion, PE, DNS, Jumpbox VM
+public_network_access = false
+jumpbox_admin_password = "YourStr0ngP@ssword!"
+```
+
+> **Important Caveats:**
+>
+> 1. **Fresh deployments only:** The AI Hub has `body.properties.publicNetworkAccess` in `ignore_changes` (required because Azure sometimes overrides this property after creation). This means switching an **existing** deployment from public→private will **not** update the Hub's `publicNetworkAccess` setting. For a fresh deployment with `public_network_access = false`, the Hub is correctly created as `"Disabled"`. If you need to switch an existing deployment, taint the Hub: `terraform taint 'azapi_resource.ai_hub'` and re-apply (this recreates the Hub).
+>
+> 2. **CMK Key Vault always public:** The CMK Key Vault (`cmk.tf`) always has `public_network_access_enabled = true` regardless of private mode. The deployer (running Terraform from outside the VNet) must be able to create and read the CMK encryption key. The AI Hub identity accesses this KV via Azure backbone — public access does not weaken security.
+>
+> 3. **DSVM image — no plan block:** The `microsoft-dsvm:dsvm-win-2022:winserver-2022` image does **not** require a `plan` block or marketplace terms acceptance. Azure rejects deployments that include plan information for this image.
+>
+> 4. **Egress not set on deployments:** When the workspace uses a managed VNet (`AllowOnlyApprovedOutbound`), `egressPublicNetworkAccess` must **not** be set on model deployments — Azure rejects it. The managed network controls egress.
+>
+> 5. **Outbound access unchanged:** Private mode controls **inbound** access only (scoring endpoint accepts calls only from private connectivity). Outbound access remains governed by the Hub's `AllowOnlyApprovedOutbound` managed network with FQDN rules — exactly as in public mode.
 
 Edit `terraform.tfvars` to change:
 - `project_name` — all resource names derive from this

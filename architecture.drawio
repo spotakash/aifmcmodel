@@ -25,7 +25,7 @@
 
         <!-- Main Resource Group -->
         <mxCell id="main-rg" value="Main Resource Group (&lt;project&gt;)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=13;fontStyle=1;verticalAlign=top;spacingTop=5;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="40" y="220" width="1080" height="700" as="geometry" />
+          <mxGeometry x="40" y="220" width="1080" height="1020" as="geometry" />
         </mxCell>
 
         <!-- Shared Resources Row -->
@@ -150,70 +150,144 @@
 
         <!-- Microsoft-Managed Subscription -->
         <mxCell id="ms-managed" value="Microsoft-Managed Subscription (enableServiceSideCMKEncryption = true)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontColor=#666666;fontSize=12;fontStyle=3;verticalAlign=top;spacingTop=5;arcSize=8;dashed=1;dashPattern=12 6;" vertex="1" parent="1">
-          <mxGeometry x="40" y="950" width="500" height="100" as="geometry" />
+          <mxGeometry x="40" y="1280" width="500" height="100" as="geometry" />
         </mxCell>
         <mxCell id="ms-cosmos" value="Cosmos DB&lt;br&gt;(metadata)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=9;fontColor=#666666;" vertex="1" parent="1">
-          <mxGeometry x="60" y="990" width="100" height="40" as="geometry" />
+          <mxGeometry x="60" y="1320" width="100" height="40" as="geometry" />
         </mxCell>
         <mxCell id="ms-search" value="AI Search&lt;br&gt;(index)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=9;fontColor=#666666;" vertex="1" parent="1">
-          <mxGeometry x="180" y="990" width="100" height="40" as="geometry" />
+          <mxGeometry x="180" y="1320" width="100" height="40" as="geometry" />
         </mxCell>
         <mxCell id="ms-storage" value="Storage Acct&lt;br&gt;(artifacts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=9;fontColor=#666666;" vertex="1" parent="1">
-          <mxGeometry x="300" y="990" width="100" height="40" as="geometry" />
+          <mxGeometry x="300" y="1320" width="100" height="40" as="geometry" />
         </mxCell>
         <mxCell id="ms-note" value="&lt;i&gt;Not visible in customer subscription&lt;/i&gt;" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontColor=#999999;fontStyle=2;" vertex="1" parent="1">
-          <mxGeometry x="420" y="1000" width="200" height="20" as="geometry" />
+          <mxGeometry x="420" y="1330" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- Private Networking (conditional: public_network_access=false) -->
+        <!-- ============================================================ -->
+        <mxCell id="pvt-net-title" value="&lt;b&gt;Private Networking (deployed when public_network_access = false)&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fontSize=14;fontColor=#333333;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="70" y="930" width="500" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Customer VNet -->
+        <mxCell id="cust-vnet" value="&lt;b&gt;Customer VNet&lt;/b&gt; (10.0.0.0/22 — 1024 IPs)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f3ff;strokeColor=#4a86c8;fontColor=#333333;fontSize=12;fontStyle=1;verticalAlign=top;spacingTop=5;arcSize=6;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="70" y="960" width="1030" height="270" as="geometry" />
+        </mxCell>
+
+        <!-- AzureBastionSubnet -->
+        <mxCell id="snet-bastion" value="&lt;b&gt;AzureBastionSubnet&lt;/b&gt;&lt;br&gt;/26 (59 usable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;verticalAlign=top;spacingTop=3;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="90" y="995" width="230" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="bastion-host" value="&lt;b&gt;Azure Bastion&lt;/b&gt;&lt;br&gt;Standard SKU&lt;br&gt;+ Standard PIP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="110" y="1030" width="190" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- snet-private-endpoint -->
+        <mxCell id="snet-pe" value="&lt;b&gt;snet-private-endpoint&lt;/b&gt;&lt;br&gt;/27 (27 usable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;verticalAlign=top;spacingTop=3;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="340" y="995" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pe-hub" value="&lt;b&gt;PE → AI Foundry Hub&lt;/b&gt;&lt;br&gt;subresource: amlworkspace" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1030" width="220" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- snet-jumpbox -->
+        <mxCell id="snet-jumpbox" value="&lt;b&gt;snet-jumpbox&lt;/b&gt;&lt;br&gt;/29 (3 usable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;verticalAlign=top;spacingTop=3;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="620" y="995" width="230" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="jumpbox-vm" value="&lt;b&gt;Data Science VM&lt;/b&gt;&lt;br&gt;Win Server 2022&lt;br&gt;4 vCPU / 16 GB&lt;br&gt;No Public IP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="640" y="1025" width="190" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- snet-spare -->
+        <mxCell id="snet-spare" value="&lt;b&gt;snet-spare&lt;/b&gt;&lt;br&gt;/24 (251 usable)&lt;br&gt;&lt;i&gt;reserved&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=10;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="870" y="995" width="210" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- Private DNS Zones -->
+        <mxCell id="dns-zones" value="&lt;b&gt;Private DNS Zones&lt;/b&gt; (VNet-linked)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;verticalAlign=top;spacingTop=3;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="90" y="1100" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="dns-azureml" value="privatelink.api.azureml.ms" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="110" y="1125" width="200" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="dns-notebooks" value="privatelink.notebooks.azure.net" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="330" y="1125" width="220" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Access flow: Bastion -> Jumpbox -> PE -> Hub -->
+        <mxCell id="flow-bastion-jumpbox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#82b366;strokeWidth=2;" edge="1" parent="1" source="bastion-host" target="jumpbox-vm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow-bastion-label" value="RDP via Bastion" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=8;fontColor=#82b366;fontStyle=1;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="flow-bastion-jumpbox">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="flow-jumpbox-pe" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.8;entryY=1;entryDx=0;entryDy=0;strokeColor=#b85450;strokeWidth=2;dashed=1;" edge="1" parent="1" source="jumpbox-vm" target="endpoint">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flow-jumpbox-label" value="scoring via PE" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=8;fontColor=#b85450;fontStyle=1;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="flow-jumpbox-pe">
+          <mxGeometry x="-0.3" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Conditional note -->
+        <mxCell id="pvt-note" value="&lt;i&gt;All resources above are conditional: count = var.public_network_access ? 0 : 1&lt;br&gt;Set public_network_access = false in terraform.tfvars to deploy&lt;/i&gt;" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontColor=#666666;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="90" y="1170" width="500" height="30" as="geometry" />
         </mxCell>
 
         <!-- Hub -> MS Managed -->
         <mxCell id="hub-to-ms" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#999999;dashed=1;dashPattern=8 4;" edge="1" parent="1" source="hub" target="ms-managed">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="hub-to-ms-label" value="server-side CMK" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontColor=#999999;fontStyle=2;" vertex="1" connectable="0" parent="hub-to-ms">
-          <mxGeometry x="-0.3" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
-        </mxCell>
 
         <!-- Legend -->
         <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;fontStyle=1;verticalAlign=top;spacingTop=3;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="850" y="950" width="270" height="100" as="geometry" />
+          <mxGeometry x="850" y="1280" width="270" height="130" as="geometry" />
         </mxCell>
         <mxCell id="leg-azurerm" value="azurerm provider" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="860" y="975" width="110" height="25" as="geometry" />
+          <mxGeometry x="860" y="1305" width="110" height="25" as="geometry" />
         </mxCell>
         <mxCell id="leg-azapi" value="azapi provider" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="860" y="1005" width="110" height="25" as="geometry" />
+          <mxGeometry x="860" y="1335" width="110" height="25" as="geometry" />
         </mxCell>
         <mxCell id="leg-pe" value="Private Link EP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="990" y="975" width="110" height="25" as="geometry" />
+          <mxGeometry x="990" y="1305" width="110" height="25" as="geometry" />
         </mxCell>
         <mxCell id="leg-fw" value="Firewall FQDN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="990" y="1005" width="110" height="25" as="geometry" />
+          <mxGeometry x="990" y="1335" width="110" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-pvt" value="Private networking" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f3ff;strokeColor=#4a86c8;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1365" width="110" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-conditional" value="conditional (count)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f3ff;strokeColor=#4a86c8;fontSize=9;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="990" y="1365" width="110" height="25" as="geometry" />
         </mxCell>
 
         <!-- ============================================================ -->
         <!-- RBAC Role Assignments Diagram                                 -->
         <!-- ============================================================ -->
         <mxCell id="rbac-title" value="&lt;b&gt;RBAC Role Assignments&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fontSize=16;fontColor=#333333;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="40" y="1080" width="300" height="30" as="geometry" />
+          <mxGeometry x="40" y="1440" width="300" height="30" as="geometry" />
         </mxCell>
 
         <!-- Identities column -->
         <mxCell id="rbac-deployer" value="&lt;b&gt;Deployer&lt;/b&gt;&lt;br&gt;(current user / SP)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="40" y="1130" width="160" height="50" as="geometry" />
+          <mxGeometry x="40" y="1490" width="160" height="50" as="geometry" />
         </mxCell>
         <mxCell id="rbac-uai" value="&lt;b&gt;CMK UAI&lt;/b&gt;&lt;br&gt;(User-Assigned Identity)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="40" y="1200" width="160" height="50" as="geometry" />
+          <mxGeometry x="40" y="1560" width="160" height="50" as="geometry" />
         </mxCell>
         <mxCell id="rbac-hub-si" value="&lt;b&gt;Hub System Identity&lt;/b&gt;&lt;br&gt;(auto-created)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="40" y="1270" width="160" height="50" as="geometry" />
+          <mxGeometry x="40" y="1630" width="160" height="50" as="geometry" />
         </mxCell>
 
         <!-- Scopes column -->
-        <mxCell id="scope-cmk-kv" value="&lt;b&gt;CMK Key Vault&lt;/b&gt;&lt;br&gt;(&lt;project&gt;-cmk RG)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="500" y="1130" width="180" height="50" as="geometry" />
+        <mxCell id="scope-cmk-kv" value="&lt;b&gt;CMK Key Vault&lt;/b&gt;&lt;br&gt;(&lt;project&gt;-cmk RG)&lt;br&gt;&lt;i&gt;Always public access&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1490" width="180" height="60" as="geometry" />
         </mxCell>
         <mxCell id="scope-main-rg" value="&lt;b&gt;Main Resource Group&lt;/b&gt;&lt;br&gt;(&lt;project&gt;)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="500" y="1230" width="180" height="50" as="geometry" />
+          <mxGeometry x="500" y="1590" width="180" height="50" as="geometry" />
         </mxCell>
 
         <!-- RBAC Arrows: Deployer -->
@@ -250,7 +324,7 @@
 
         <!-- Timing note for RBAC -->
         <mxCell id="rbac-timing" value="⏱ 60s wait after CMK roles&lt;br&gt;⏱ 120s wait after Hub roles" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontColor=#b85450;fontStyle=2;" vertex="1" parent="1">
-          <mxGeometry x="720" y="1180" width="160" height="30" as="geometry" />
+          <mxGeometry x="720" y="1540" width="160" height="30" as="geometry" />
         </mxCell>
 
         <!-- ============================================================ -->
@@ -289,7 +363,7 @@
 
         <!-- Note -->
         <mxCell id="kvap-note" value="&lt;i&gt;With AllowOnlyApprovedOutbound, Azure ML cannot&lt;br&gt;auto-create KV access policies. These are explicit.&lt;/i&gt;" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontColor=#666666;fontStyle=2;" vertex="1" parent="1">
-          <mxGeometry x="350" y="1490" width="300" height="30" as="geometry" />
+          <mxGeometry x="350" y="1850" width="300" height="30" as="geometry" />
         </mxCell>
 
       </root>

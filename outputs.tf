@@ -127,3 +127,25 @@ output "model_short_name" {
   description = "Model short name extracted from model_id"
   value       = local.model_short_name
 }
+
+# --- Private Networking (only when public_network_access = false) ---
+
+output "vnet_id" {
+  description = "ID of the virtual network (null if public mode)"
+  value       = try(azurerm_virtual_network.main[0].id, null)
+}
+
+output "bastion_id" {
+  description = "ID of the Azure Bastion host (null if public mode)"
+  value       = try(azurerm_bastion_host.main[0].id, null)
+}
+
+output "private_endpoint_id" {
+  description = "ID of the AI Hub private endpoint (null if public mode)"
+  value       = try(azurerm_private_endpoint.ai_hub[0].id, null)
+}
+
+output "jumpbox_private_ip" {
+  description = "Private IP address of the jumpbox VM (null if public mode)"
+  value       = try(azurerm_network_interface.jumpbox[0].private_ip_address, null)
+}

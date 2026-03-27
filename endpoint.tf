@@ -73,7 +73,6 @@ resource "azapi_resource" "model_deployment" {
       model                     = var.model_id
       instanceType              = local.resolved_instance_type
       appInsightsEnabled        = true
-      egressPublicNetworkAccess = local.public_network_access
 
       requestSettings = {
         maxConcurrentRequestsPerInstance = 1

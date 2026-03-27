@@ -70,3 +70,32 @@ variable "deployment_instance_count" {
   type        = number
   default     = 1
 }
+
+# =============================================================================
+# Private Networking (auto-deployed when public_network_access = false)
+# =============================================================================
+
+variable "vnet_address_space" {
+  description = "Address space for the virtual network (/22 = 1024 IPs)"
+  type        = string
+  default     = "10.0.0.0/22"
+}
+
+variable "jumpbox_admin_username" {
+  description = "Admin username for the jumpbox Data Science VM"
+  type        = string
+  default     = "azureadmin"
+}
+
+variable "jumpbox_admin_password" {
+  description = "Admin password for the jumpbox Data Science VM (required when public_network_access = false)"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "jumpbox_vm_size" {
+  description = "VM size for the jumpbox Data Science VM (~4 vCPU, 16 GB RAM)"
+  type        = string
+  default     = "Standard_D4s_v5"
+}
