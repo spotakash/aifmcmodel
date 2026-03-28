@@ -343,12 +343,42 @@ See [scripts/README.md](scripts/README.md) for full usage.
 | `User assigned identity doesn't have enough permissions` | CMK identity lacks `vaults/read` | Identity needs both `Key Vault Crypto User` + `Reader` roles on CMK vault |
 | `soft_delete_retention_days cannot be modified` | Existing KV retention mismatch | Must destroy and recreate the KV — `soft_delete_retention_days` is immutable |
 | `User container has crashed` on model deployment | Model weight download blocked by managed network | Add FQDN rules for `huggingface.co`, `*.huggingface.co`, `xethub.hf.co`, `*.xethub.hf.co` |
-| `Can't delete deployment with non-zero traffic` | Deployment has 100% traffic weight; Azure blocks deletion | Zero traffic first: `az rest --method PUT --url ".../onlineEndpoints/ep-name?api-version=2025-01-01-preview" --body '{"location":"...","identity":{"type":"SystemAssigned"},"kind":"Managed","properties":{"authMode":"Key","traffic":{}}}'`, then re-run destroy |
+| `Can't delete deployment with non-zero traffic` | Deployment has 100% traffic weight; Azure blocks deletion | [Zero traffic first](#zeroing-endpoint-traffic-before-destroy), then re-run destroy |
 | `Provider produced inconsistent result` on FQDN rule | azurerm provider bug — Azure creates rule but read-back is empty | Re-run `terraform apply` — rules will be recreated |
 | `InternalServerError` on Hub update | Azure rejects in-place changes to `hbiWorkspace` or `publicNetworkAccess` | Added to `lifecycle { ignore_changes }` — Terraform won't attempt the update |
 | CMK KV `Forbidden` / `ForbiddenByConnection` | CMK Key Vault `public_network_access` set to `false` — deployer blocked | CMK KV must always have `public_network_access_enabled = true` (already fixed in `cmk.tf`) |
 | DSVM `ResourcePurchaseValidationFailed` | `plan` block included but image doesn't require it | Remove `plan` block and `azurerm_marketplace_agreement` — `dsvm-win-2022` doesn't need them |
 | `EgressPublicNetworkAccess no longer supported` | `egressPublicNetworkAccess` set on deployment with managed VNet workspace | Remove `egressPublicNetworkAccess` from model deployment body — managed network controls egress |
+
+### Zeroing Endpoint Traffic Before Destroy
+
+Azure blocks deletion of deployments with non-zero traffic weight. Use either method to zero traffic before running `terraform destroy`:
+
+**Method 1: Azure CLI (`az ml`)**
+
+```bash
+az ml online-endpoint update \
+  --resource-group <RESOURCE_GROUP> \
+  --workspace-name <PROJECT_NAME> \
+  --name <ENDPOINT_NAME> \
+  --traffic "<DEPLOYMENT_NAME>=0"
+```
+
+**Method 2: Azure REST API (`az rest`)**
+
+```bash
+az rest --method PUT \
+  --url "https://management.azure.com/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.MachineLearningServices/workspaces/<PROJECT_NAME>/onlineEndpoints/<ENDPOINT_NAME>?api-version=2025-01-01-preview" \
+  --body '{"location":"<LOCATION>","identity":{"type":"SystemAssigned"},"kind":"Managed","properties":{"authMode":"Key","traffic":{}}}'
+```
+
+Then re-run destroy:
+
+```bash
+terraform plan -destroy -out=main.destroy.tfplan && terraform apply main.destroy.tfplan
+```
+
+> **Note:** The `az ml` method requires the Azure ML CLI extension (`az extension add -n ml`). If it has Python dependency issues, use the REST API method instead.
 
 ## Customization
 

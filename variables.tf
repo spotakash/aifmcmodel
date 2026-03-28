@@ -92,6 +92,17 @@ variable "jumpbox_admin_password" {
   type        = string
   sensitive   = true
   default     = null
+
+  validation {
+    condition = var.jumpbox_admin_password == null || (
+      length(var.jumpbox_admin_password) >= 12 &&
+      can(regex("[a-z]", var.jumpbox_admin_password)) &&
+      can(regex("[A-Z]", var.jumpbox_admin_password)) &&
+      can(regex("[0-9]", var.jumpbox_admin_password)) &&
+      can(regex("[^a-zA-Z0-9_]", var.jumpbox_admin_password))
+    )
+    error_message = "Password must be >=12 chars and contain lowercase, uppercase, digit, and special character (not underscore)."
+  }
 }
 
 variable "jumpbox_vm_size" {
