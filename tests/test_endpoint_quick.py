@@ -1,3 +1,11 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "azure-ai-ml>=1.15.0",
+#     "azure-identity>=1.15.0",
+#     "requests>=2.31.0",
+# ]
+# ///
 """
 Quick Interactive Endpoint Test — Azure AI Foundry Managed Compute Endpoints.
 
@@ -13,7 +21,8 @@ Key features:
       (Key, AADToken, AMLToken) before calling the endpoint.
     - Auto-fetches credentials (key, AAD token, AML token) via Azure ML SDK.
     - Publishes source IP for Azure Monitor / App Insights log correlation.
-    - Prints a structured test report with timing, request IDs, and auth details.
+    - Prints a structured test report with timing, request IDs, auth details,
+      and the model name that served the embedding/inference task.
     - Offers to restore original authMode after the test completes.
 
 AI Foundry publishes inference URIs in the format:
@@ -31,11 +40,11 @@ Workflow:
     7. Offers to restore original authMode.
 
 Prerequisites:
-    pip install -r requirements.txt   # azure-ai-ml, azure-identity, requests
+    uv tool install (https://docs.astral.sh/uv/)
     az login                          # or configure a managed identity
 
 Usage:
-    python tests/test_endpoint_quick.py
+    uv run tests/test_endpoint_quick.py
 """
 
 import json
@@ -51,7 +60,8 @@ try:
     from azure.ai.ml import MLClient
 except ImportError as exc:
     print(f"Missing dependency: {exc.name}")
-    print("Install with:  pip install azure-ai-ml azure-identity requests")
+    print("Install with:  uv run tests/test_endpoint_quick.py  (auto-installs deps)")
+    print("           or: pip install azure-ai-ml azure-identity requests")
     sys.exit(1)
 
 
@@ -659,6 +669,23 @@ def print_result(result: dict) -> None:
     print("--- End ---")
 
 
+def extract_model_name(response_body: dict) -> str:
+    """Extract the model name from the endpoint response body.
+
+    OpenAI-compatible endpoints return a top-level 'model' field.
+    Falls back to 'N/A' if not found.
+
+    Args:
+        response_body: Parsed JSON response from the endpoint.
+
+    Returns:
+        Model name string, or 'N/A'.
+    """
+    if isinstance(response_body, dict):
+        return response_body.get("model", "N/A")
+    return "N/A"
+
+
 def print_test_report(
     scenario: str,
     source_ip: str,
@@ -681,6 +708,7 @@ def print_test_report(
         result:        Result dict from invoke_endpoint().
         timestamp:     ISO timestamp when the test was initiated.
     """
+    model_name = extract_model_name(result["response_body"])
     print("\n" + "=" * 60)
     print("  TEST REPORT")
     print("=" * 60)
@@ -688,6 +716,7 @@ def print_test_report(
     print(f"  Source IP      : {source_ip}")
     print(f"  Endpoint       : {endpoint_name}")
     print(f"  Inference URI  : {scoring_uri}")
+    print(f"  Model Name     : {model_name}")
     print(f"  Auth Method    : {scenario.upper()}")
     print(f"  Auth Mode Set  : {auth_mode}")
     print(f"  Input Count    : {len(inputs)}")
@@ -698,6 +727,8 @@ def print_test_report(
     print("=" * 60)
     print(f"\n  Use Source IP '{source_ip}' to filter Azure Monitor / App Insights logs.")
     print(f"  Use Request ID to trace this specific request in endpoint logs.")
+    if model_name != "N/A":
+        print(f"  Embedding task completed via model: {model_name}")
 
 
 # =============================================================================
