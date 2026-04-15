@@ -19,7 +19,7 @@ model_id        = "azureml://registries/HuggingFace/models/alibaba-nlp-gte-large
 # --- Private Endpoint Mode ---
 # Set to false to enable private networking (VNet, Bastion, PE, Jumpbox VM)
 # Set to true (default) for public access — no VNet resources deployed
-public_network_access = false
+public_network_access = true
 
 # --- Jumpbox VM (only used when public_network_access = false) ---
 jumpbox_admin_password = "YourOwnP@ss1"
