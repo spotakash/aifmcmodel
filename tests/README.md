@@ -7,7 +7,7 @@ Interactive script to test any Azure AI Foundry managed compute endpoint — no 
 One-command interactive test for AI Foundry Hub managed online endpoints.
 
 ```bash
-python tests/test_endpoint_quick.py
+uv run tests/test_endpoint_quick.py
 ```
 
 ### What it does
@@ -24,8 +24,9 @@ python tests/test_endpoint_quick.py
 5. **Auto-switches endpoint authMode** to match (e.g. selects AAD → sets authMode to `AADToken`)
 6. **Auto-fetches credentials** — keys via SDK, AAD token via `DefaultAzureCredential`, AML token via SDK
 7. **Publishes source IP** for Azure Monitor / App Insights log correlation
-8. **Prints test report** — timestamp, source IP, response time, request IDs, auth details
-9. **Offers to restore** original authMode after the test completes
+8. **Prints test report** — timestamp, source IP, model name, response time, request IDs, auth details
+9. **Reports the model name** that served the embedding/inference task
+10. **Offers to restore** original authMode after the test completes
 
 ### Key Concepts
 
@@ -40,9 +41,16 @@ The `<endpoint-name>` is auto-extracted from the URI subdomain.
 ### Prerequisites
 
 ```bash
+# Option 1 — uv (recommended, faster startup, auto-installs deps)
+curl -LsSf https://astral.sh/uv/install.sh | sh   # install uv (one-time)
+az login                                            # or configure managed identity
+
+# Option 2 — pip (traditional)
 pip install -r requirements.txt   # azure-ai-ml, azure-identity, requests
-az login                          # or configure managed identity
+az login
 ```
+
+The script includes [PEP 723](https://peps.python.org/pep-0723/) inline metadata, so `uv run` automatically creates an ephemeral environment with the correct dependencies — no virtualenv or manual install needed.
 
 ### Important Notes
 
@@ -123,6 +131,7 @@ Resolving source IP for Azure log correlation...
   Source IP      : <your-public-ip>
   Endpoint       : my-endpoint
   Inference URI  : https://my-endpoint.australiaeast.inference.ml.azure.com/v1/embeddings
+  Model Name     : thenlper-gte-base-15
   Auth Method    : KEY
   Auth Mode Set  : Key
   Input Count    : 3
@@ -134,6 +143,7 @@ Resolving source IP for Azure log correlation...
 
   Use Source IP '<your-public-ip>' to filter Azure Monitor / App Insights logs.
   Use Request ID to trace this specific request in endpoint logs.
+  Embedding task completed via model: thenlper-gte-base-15
 
   [PASS] Endpoint call succeeded.
 
