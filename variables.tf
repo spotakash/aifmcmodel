@@ -45,7 +45,7 @@ variable "public_network_access" {
 # =============================================================================
 
 variable "azure_ml_sp_object_id" {
-  description = "Object ID of the Azure ML first-party service principal (appid 74a64900-c0dd-4bd3-bf91-543ab021560b) in your tenant. Find via: az ad sp show --id 74a64900-c0dd-4bd3-bf91-543ab021560b --query id -o tsv"
+  description = "Object ID of the Azure Machine Learning first-party service principal in your tenant. Find via: az ad sp show --id $(az ad sp list --display-name 'Azure Machine Learning' --query '[0].appId' -o tsv) --query id -o tsv"
   type        = string
 
   validation {

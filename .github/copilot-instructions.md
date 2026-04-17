@@ -17,7 +17,7 @@ Main Resource Group (<project>)
  ├── Key Vault (shared, deployer access policy)
  ├── Log Analytics + Application Insights
  ├── Container Registry
- ├── AI Foundry Hub (azurerm_ai_foundry, CMK-encrypted)
+ ├── AI Foundry Hub (azapi_resource, CMK-encrypted)
  │    └── AI Foundry Project (azurerm_ai_foundry_project)
  │         └── Managed Online Endpoint (azapi)
  │              └── Model Deployment (azapi)
@@ -38,10 +38,16 @@ Main Resource Group (<project>)
 | `monitoring.tf` | Log Analytics + Application Insights |
 | `acr.tf` | Container Registry |
 | `cmk.tf` | CMK Key Vault + RSA Key + User-Assigned Identity + RBAC (separate RG) |
-| `ai_hub.tf` | AI Foundry Hub (azurerm_ai_foundry, CMK-encrypted) |
+| `ai_hub.tf` | AI Foundry Hub (azapi_resource, CMK-encrypted) |
 | `ai_project.tf` | AI Foundry Project (azurerm_ai_foundry_project) |
 | `endpoint.tf` | Online endpoint + model deployment (azapi) |
 | `outputs.tf` | All outputs |
+| `networking.tf` | VNet + Subnets (conditional on private mode) |
+| `bastion.tf` | Azure Bastion Standard SKU (conditional on private mode) |
+| `private_endpoint.tf` | Private Endpoint + DNS Zones for AI Hub (conditional on private mode) |
+| `jumpbox.tf` | Data Science VM jumpbox (conditional on private mode) |
+| `tests/test_endpoint_quick.py` | Interactive single-shot endpoint test |
+| `tests/test_endpoint_soak.py` | Prolonged soak test with HTML report |
 
 **Never combine resources from different domains into a single file.** Each `.tf` file owns one logical resource group.
 
@@ -111,12 +117,14 @@ All resource names are derived from `project_name` via `locals.tf`. Never hardco
 - Use `bool` variables with sensible defaults for feature flags (`public_network_access`)
 
 ## Security Rules
-- No secrets in code or tfvars
+- No secrets in code or tfvars — use `TF_VAR_*` env vars for sensitive values (e.g. `jumpbox_admin_password`)
+- `admin_enabled = false` on ACR — use managed identity / RBAC auth
 - `min_tls_version = "TLS1_2"` on storage accounts
 - `allow_nested_items_to_be_public = false` on storage
 - `local_auth_enabled = false` on cognitive accounts
 - `purge_protection_enabled = false` on Key Vault (dev environment)
-- Let Azure auto-manage KV access policies for ML workspace identities
+- Never use inline `access_policy {}` blocks inside `azurerm_key_vault` — always use separate `azurerm_key_vault_access_policy` resources
+- With `AllowOnlyApprovedOutbound`, explicitly grant KV access policies for: deployer, Hub system, CMK UAI, and Azure ML SP / Project identity (`var.azure_ml_sp_object_id`)
 
 ## Outputs
 - Export `id` and key attributes (name, URI, login_server, connection_string) for each resource
