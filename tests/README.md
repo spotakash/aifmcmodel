@@ -151,3 +151,44 @@ Resolving source IP for Azure log correlation...
   Restore to 'AADToken'? (Y/n): Y
   Restored authMode to 'AADToken'.
 ```
+
+---
+
+## test_endpoint_soak.py
+
+Prolonged / soak test that continuously calls the endpoint, rotating through auth methods (Key / AAD / AML) round-robin. Writes incremental JSONL results and a single HTML summary report at the end.
+
+```bash
+# Run for 30 minutes, max 200 iterations
+uv run tests/test_endpoint_soak.py --duration-seconds 1800 --max-tests 200
+
+# Key auth only, 50 iterations, custom output directory
+uv run tests/test_endpoint_soak.py --auth key --max-tests 50 --output-dir ./my_results
+
+# Run until Ctrl+C (all three auth methods)
+uv run tests/test_endpoint_soak.py
+```
+
+### Options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--duration-seconds` | ∞ | Total run time in seconds |
+| `--max-tests` | ∞ | Stop after N iterations |
+| `--auth` | `key,aad,aml` | Auth methods to rotate (comma-separated) |
+| `--models` | — | Model labels for round-robin tracking (comma-separated) |
+| `--output-dir` | `soak_results/<timestamp>/` | Output directory |
+| `--bucket-seconds` | `60` | Histogram time-bucket width in seconds |
+
+If both `--duration-seconds` and `--max-tests` are given, the first limit reached stops the run.
+
+### Output
+
+- `results.jsonl` — one JSON record per iteration (timestamp, auth, status, latency, request IDs, errors)
+- `report.html` — offline HTML report with summary cards, pie chart, time-bucket histogram, auth/model breakdowns, and colour-coded detail table
+
+### Notes
+
+- **Auth switching takes ~30–60s per change.** Use `--auth key` for maximum throughput.
+- **Ctrl+C** triggers graceful shutdown: restores original authMode and writes the final report.
+- No secrets (keys/tokens) are printed to console or written to the report.
