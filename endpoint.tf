@@ -20,6 +20,7 @@ resource "azapi_resource" "online_endpoint" {
   name      = local.endpoint_name
   location  = azurerm_resource_group.main.location
   parent_id = azurerm_ai_foundry_project.ai_project.id
+  tags      = local.tags
 
   depends_on = [time_sleep.wait_for_project]
 
