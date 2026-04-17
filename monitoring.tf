@@ -79,3 +79,71 @@ resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
     category = "Transaction"
   }
 }
+
+# =============================================================================
+# Diagnostic Settings — Online Endpoint (inference logs + traffic metrics)
+#
+# AmlOnlineEndpoint* log categories only exist on the onlineEndpoints child
+# resource, not on the Hub or Project workspace. Explicit category names are
+# used instead of the "allLogs" category group for reliability.
+# log_analytics_destination_type = "Dedicated" sends data to resource-specific
+# tables (AmlOnlineEndpointTrafficLog, etc.) instead of AzureDiagnostics.
+# =============================================================================
+
+resource "azurerm_monitor_diagnostic_setting" "online_endpoint" {
+  name                           = "diag-${local.endpoint_name}"
+  target_resource_id             = azapi_resource.online_endpoint.id
+  log_analytics_workspace_id     = azurerm_log_analytics_workspace.ml.id
+  log_analytics_destination_type = "Dedicated"
+
+  enabled_log {
+    category = "AmlOnlineEndpointConsoleLog"
+  }
+
+  enabled_log {
+    category = "AmlOnlineEndpointTrafficLog"
+  }
+
+  enabled_log {
+    category = "AmlOnlineEndpointEventLog"
+  }
+
+  enabled_metric {
+    category = "Traffic"
+  }
+}
+
+# =============================================================================
+# Diagnostic Settings — AI Foundry Project workspace (deployment & run events)
+# =============================================================================
+
+resource "azurerm_monitor_diagnostic_setting" "ai_project" {
+  name                           = "diag-${local.ai_project_name}"
+  target_resource_id             = azurerm_ai_foundry_project.ai_project.id
+  log_analytics_workspace_id     = azurerm_log_analytics_workspace.ml.id
+  log_analytics_destination_type = "Dedicated"
+
+  enabled_log {
+    category = "DeploymentReadEvent"
+  }
+
+  enabled_log {
+    category = "DeploymentEventACI"
+  }
+
+  enabled_log {
+    category = "DeploymentEventAKS"
+  }
+
+  enabled_log {
+    category = "InferencingOperationAKS"
+  }
+
+  enabled_log {
+    category = "InferencingOperationACI"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
+}
