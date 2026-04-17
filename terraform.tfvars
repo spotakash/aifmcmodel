@@ -8,6 +8,11 @@
 project_name = "gtpe" #Change this for each new deployment to avoid pooling errors
 
 # --- Model Deployment ---
+# --- Azure ML Service Principal ---
+# Object ID of the Azure ML first-party SP in this tenant.
+# Find via: az ad sp list --display-name 'Azure Machine Learning' --query '[0].id' -o tsv
+azure_ml_sp_object_id = "<replace-with-your-tenant-object-id>"
+
 # Option A: GTE Large EN v1.5 (CPU OK — auto-selects Standard_DS5_v2)
 deployment_name = "gte-large-en-v15-11"
 model_id        = "azureml://registries/HuggingFace/models/alibaba-nlp-gte-large-en-v1.5/versions/11"
@@ -22,4 +27,6 @@ model_id        = "azureml://registries/HuggingFace/models/alibaba-nlp-gte-large
 public_network_access = true
 
 # --- Jumpbox VM (only used when public_network_access = false) ---
-jumpbox_admin_password = "YourOwnP@ss1"
+# SECURITY: Do NOT commit passwords. Set via environment variable instead:
+#   export TF_VAR_jumpbox_admin_password='YourStr0ngP@ss!'
+# jumpbox_admin_password = "<set via TF_VAR_jumpbox_admin_password>"

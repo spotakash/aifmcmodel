@@ -161,6 +161,9 @@ All resource names are derived from a single `project_name` variable via `locals
 | `private_endpoint.tf` | Private Endpoint + Private DNS Zones for AI Hub (conditional on private mode) |
 | `jumpbox.tf` | Data Science VM jumpbox — Windows Server 2022 (conditional on private mode) |
 | `outputs.tf` | Key resource outputs |
+| `tests/test_endpoint_quick.py` | Interactive single-shot endpoint test (Key / AAD / AML auth) |
+| `tests/test_endpoint_soak.py` | Prolonged soak test — round-robin auth, JSONL results, HTML report |
+| `scripts/check_model_sku.py` | Query Azure ML Registry for model SKU requirements |
 
 ## Usage
 
@@ -197,23 +200,25 @@ terraform destroy -auto-approve
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `project_name` | Yes | — | 3-12 lowercase alphanumeric chars |
+| `azure_ml_sp_object_id` | Yes | — | Object ID of Azure ML first-party SP. Find via: `az ad sp list --display-name 'Azure Machine Learning' --query '[0].id' -o tsv` |
 | `deployment_name` | Yes | — | Model deployment name |
 | `model_id` | Yes | — | Azure ML registry model URI |
 | `location` | No | `australiaeast` | Azure region |
 | `environment` | No | `dev` | Environment tag |
+| `tags` | No | `{}` | Extra tags merged with defaults |
 | `public_network_access` | No | `true` | `true` = public mode (no VNet resources), `false` = private mode (deploys VNet, Bastion, PE, Jumpbox) |
 | `deployment_instance_type` | No | `Standard_DS5_v2` | VM size for model serving |
 | `deployment_instance_count` | No | `1` | Number of serving instances |
 | `vnet_address_space` | No | `10.0.0.0/22` | VNet address space (private mode only) |
 | `jumpbox_admin_username` | No | `azureadmin` | Jumpbox VM admin username (private mode only) |
-| `jumpbox_admin_password` | Yes* | `null` | Jumpbox VM admin password (*required when `public_network_access = false`) |
+| `jumpbox_admin_password` | Yes* | `null` | Jumpbox VM admin password (*required when `public_network_access = false`). Set via `TF_VAR_jumpbox_admin_password` — never commit to tfvars. |
 | `jumpbox_vm_size` | No | `Standard_D4s_v5` | Jumpbox VM size — 4 vCPU, 16 GB RAM (private mode only) |
 
 ## Key Design Decisions
 
 ### Resources Excluded (auto-managed by Azure)
 
-- **Key Vault access policies** — ML workspaces auto-register their managed identities
+- **Key Vault access policies for child services** — aside from the four explicitly managed policies in `keyvault.tf`, additional child services register themselves automatically
 - **Key Vault secrets** — auto-created for endpoint keys and datastore credentials
 - **ML workspace environments** — built-in AzureML curated environments
 - **ML workspace datastores** — auto-provisioned (`workspaceblobstore`, `workspaceartifactstore`, etc.)
@@ -260,15 +265,16 @@ All role assignments and access policies required by this deployment:
 
 #### Key Vault Access Policies (Operational KV)
 
-The operational Key Vault (`keyvault.tf`) uses access policies (not RBAC):
+The operational Key Vault (`keyvault.tf`) uses access policies (not RBAC). All policies are managed as **separate** `azurerm_key_vault_access_policy` resources — never inline `access_policy {}` blocks (inline blocks are authoritative and will delete externally-managed policies on every apply):
 
 | Identity | Key Permissions | Secret Permissions | Certificate Permissions | Purpose |
 |---|---|---|---|---|
 | **Deployer** (current user) | Get, List, Create, Delete, Update, Purge, Recover | Get, List, Set, Delete, Purge, Recover | Get, List, Create, Delete, Update, Purge, Recover | Full deployer access |
 | **Hub System Identity** | Get, List, Create, Delete, Update, Recover, WrapKey, UnwrapKey | Get, List, Set, Delete, Recover | Get, List, Create, Delete, Update, Recover | Workspace operations (managed network blocks auto-creation) |
 | **CMK UAI** | Get, List, Create, Delete, Update, Recover, WrapKey, UnwrapKey | Get, List, Set, Delete, Recover | Get, List, Create, Delete, Update, Recover | Primary identity for workspace operations |
+| **Azure ML SP / Project Identity** | Get, List, WrapKey, UnwrapKey | Get, List, Set | — | Platform + endpoint key management (`var.azure_ml_sp_object_id`) |
 
-> **Why explicit KV access policies?** With `AllowOnlyApprovedOutbound` managed network, Azure ML cannot auto-create its own KV access policies. These must be granted explicitly after Hub creation.
+> **Why explicit KV access policies?** With `AllowOnlyApprovedOutbound` managed network, Azure ML cannot auto-create its own KV access policies. The Azure ML first-party SP and the AI Foundry Project system identity share the **same object ID**, so a single policy covers both. Retrieve it via `az ad sp list --display-name 'Azure Machine Learning' --query '[0].id' -o tsv` and set `azure_ml_sp_object_id` in `terraform.tfvars`.
 
 ### Customer-Managed Key (CMK) Encryption
 
@@ -333,8 +339,8 @@ See [scripts/README.md](scripts/README.md) for full usage.
 | `ScoringTimeoutMs must be between 50 and 180000` | `requestTimeout = PT0S` | Already fixed — set to `PT90S` |
 | `InternalServerError` on endpoint create | Project services not initialized | 120s sleep between project and endpoint |
 | `Missing Resource Identity After Update` | azapi loses LRO tracking | 60m timeout on deployment; re-run apply |
-| KV `Forbidden` / secrets access denied | Workspace identity lacks KV access | Azure auto-creates policies; wait and retry |
-| `already exists` on KV access policy | Azure auto-created it first | No explicit policies — Azure manages them |
+| KV `Forbidden` / secrets access denied | ML identity or Azure ML SP lacks KV access | Ensure all 4 KV access policies exist in `keyvault.tf` (Hub system, CMK UAI, Project system, Azure ML SP) |
+| `already exists` on KV access policy | Azure auto-created it (public mode only) | With `AllowOnlyApprovedOutbound`, explicit policies are required; without managed network, Azure may create them first |
 | `SkuBasedEngineNotFound: Cpu` | GPU model on CPU SKU | Auto-mapped in `locals.tf`; or set GPU SKU in tfvars |
 | `Soft-deleted workspace exists` | Previous workspace in soft-delete | Auto-purged by `terraform_data` resources with 30s wait for Azure to complete purge |
 | `DeploymentName must be 3-32 chars` | Name too long | Shorten `deployment_name` in tfvars (validated at plan time) |
