@@ -43,3 +43,6 @@ env/
 *.pem
 *.key
 *.env.local
+
+# Test output
+soak_results/
