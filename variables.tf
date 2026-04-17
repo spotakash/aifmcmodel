@@ -44,6 +44,16 @@ variable "public_network_access" {
 # Online Endpoint & Deployment (HuggingFace Model)
 # =============================================================================
 
+variable "azure_ml_sp_object_id" {
+  description = "Object ID of the Azure ML first-party service principal (appid 74a64900-c0dd-4bd3-bf91-543ab021560b) in your tenant. Find via: az ad sp show --id 74a64900-c0dd-4bd3-bf91-543ab021560b --query id -o tsv"
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", var.azure_ml_sp_object_id))
+    error_message = "azure_ml_sp_object_id must be a valid UUID (object ID of the Azure ML service principal)."
+  }
+}
+
 variable "deployment_name" {
   description = "Name of the model deployment (3-32 chars, alphanumeric and dashes)"
   type        = string
