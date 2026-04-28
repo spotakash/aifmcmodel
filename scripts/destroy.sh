@@ -17,8 +17,8 @@ set -euo pipefail
 PLAN_ONLY=false
 [[ "${1:-}" == "--plan" ]] && PLAN_ONLY=true
 
-echo "=== Step 1: Remove FQDN rules from state (Hub cascade-deletes them) ==="
-FQDN_RULES=$(terraform state list 2>/dev/null | grep 'azapi_resource.fqdn_' || true)
+echo "=== Step 1: Remove FQDN rule state entries if any remain (Hub cascade-deletes them) ==="
+FQDN_RULES=$(terraform state list 2>/dev/null | grep -E 'fqdn_|network_outbound_rule_fqdn' || true)
 if [[ -n "$FQDN_RULES" ]]; then
   echo "$FQDN_RULES" | while read -r rule; do
     terraform state rm "$rule" 2>/dev/null && echo "  Removed: $rule" || echo "  Skip: $rule (not in state)"

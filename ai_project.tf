@@ -36,16 +36,16 @@ resource "azurerm_ai_foundry_project" "ai_project" {
   depends_on = [
     terraform_data.purge_soft_deleted_ai_project,
     azapi_resource_action.provision_managed_network,
-    azapi_resource.fqdn_docker_io,
-    azapi_resource.fqdn_docker_io_wildcard,
-    azapi_resource.fqdn_docker_com,
-    azapi_resource.fqdn_cloudflare_docker,
-    azapi_resource.fqdn_auth0,
-    azapi_resource.fqdn_huggingface_lfs,
-    azapi_resource.fqdn_huggingface_co,
-    azapi_resource.fqdn_huggingface_co_wildcard,
-    azapi_resource.fqdn_xethub_hf_co,
-    azapi_resource.fqdn_xethub_hf_co_wildcard,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.docker_io,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.docker_io_wildcard,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.docker_com,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.cloudflare_docker,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.auth0,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co_wildcard,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co,
+    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co_wildcard,
   ]
 
   # ---------------------------------------------------------------------------

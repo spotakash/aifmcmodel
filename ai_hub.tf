@@ -126,240 +126,129 @@ resource "time_sleep" "wait_for_hub_rbac" {
 # FQDN outbound rules — Required for HuggingFace model deployments.
 # AllowOnlyApprovedOutbound blocks all egress by default. The model container
 # image is pulled from Docker Hub, and model artifacts from HuggingFace CDN.
-# Adding FQDN rules triggers Azure Firewall (Standard SKU) creation.
+#
+# Uses azurerm_machine_learning_workspace_network_outbound_rule_fqdn.
+# Known behavior: azurerm read-back sometimes returns empty, so rules may
+# not persist in state. This is acceptable — on next apply, Terraform
+# silently recreates any missing rules (idempotent PUT). This self-heals
+# if Azure's managed network reconciliation removes rules.
+#
+# Rules are created AFTER managed network provisioning. The
+# provisionManagedNetwork action creates the Azure Firewall from scratch;
+# rules must be applied to the live Firewall to persist reliably.
 # See: https://aka.ms/azureml-managed-network#scenario-use-huggingface-models
-#
-# IMPORTANT: Rules are created AFTER managed network provisioning. The
-# provisionManagedNetwork action creates the Azure Firewall from scratch and
-# can overwrite/lose FQDN rules that were created beforehand. By creating
-# rules after provisioning, they are applied to a live firewall reliably.
-#
-# Uses azapi_resource instead of azurerm because the azurerm provider has a
-# bug where FQDN rules are created in Azure but the read-back returns empty,
-# causing Terraform to drop them from state.
 # -----------------------------------------------------------------------------
-resource "azapi_resource" "fqdn_docker_io" {
-  type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
-  name      = "allow-docker-io"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = {
-    properties = {
-      type        = "FQDN"
-      category    = "UserDefined"
-      destination = "docker.io"
-    }
-  }
-
-  schema_validation_enabled = false
-  ignore_missing_property   = true
-  depends_on                = [azapi_resource_action.provision_managed_network]
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "docker_io" {
+  name             = "allow-docker-io"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "docker.io"
+  depends_on       = [azapi_resource_action.provision_managed_network]
 }
 
-resource "azapi_resource" "fqdn_docker_io_wildcard" {
-  type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
-  name      = "allow-docker-io-wildcard"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = {
-    properties = {
-      type        = "FQDN"
-      category    = "UserDefined"
-      destination = "*.docker.io"
-    }
-  }
-
-  schema_validation_enabled = false
-  ignore_missing_property   = true
-  depends_on                = [azapi_resource_action.provision_managed_network]
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "docker_io_wildcard" {
+  name             = "allow-docker-io-wildcard"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "*.docker.io"
+  depends_on       = [azapi_resource_action.provision_managed_network]
 }
 
-resource "azapi_resource" "fqdn_docker_com" {
-  type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
-  name      = "allow-docker-com"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = {
-    properties = {
-      type        = "FQDN"
-      category    = "UserDefined"
-      destination = "*.docker.com"
-    }
-  }
-
-  schema_validation_enabled = false
-  ignore_missing_property   = true
-  depends_on                = [azapi_resource_action.provision_managed_network]
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "docker_com" {
+  name             = "allow-docker-com"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "*.docker.com"
+  depends_on       = [azapi_resource_action.provision_managed_network]
 }
 
-resource "azapi_resource" "fqdn_cloudflare_docker" {
-  type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
-  name      = "allow-cloudflare-docker"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = {
-    properties = {
-      type        = "FQDN"
-      category    = "UserDefined"
-      destination = "production.cloudflare.docker.com"
-    }
-  }
-
-  schema_validation_enabled = false
-  ignore_missing_property   = true
-  depends_on                = [azapi_resource_action.provision_managed_network]
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "cloudflare_docker" {
+  name             = "allow-cloudflare-docker"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "production.cloudflare.docker.com"
+  depends_on       = [azapi_resource_action.provision_managed_network]
 }
 
-resource "azapi_resource" "fqdn_auth0" {
-  type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
-  name      = "allow-auth0"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = {
-    properties = {
-      type        = "FQDN"
-      category    = "UserDefined"
-      destination = "cdn.auth0.com"
-    }
-  }
-
-  schema_validation_enabled = false
-  ignore_missing_property   = true
-  depends_on                = [azapi_resource_action.provision_managed_network]
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "auth0" {
+  name             = "allow-auth0"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "cdn.auth0.com"
+  depends_on       = [azapi_resource_action.provision_managed_network]
 }
 
-resource "azapi_resource" "fqdn_huggingface_lfs" {
-  type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
-  name      = "allow-huggingface-lfs"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = {
-    properties = {
-      type        = "FQDN"
-      category    = "UserDefined"
-      destination = "cdn-lfs.huggingface.co"
-    }
-  }
-
-  schema_validation_enabled = false
-  ignore_missing_property   = true
-  depends_on                = [azapi_resource_action.provision_managed_network]
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "huggingface" {
+  name             = "allow-huggingface-lfs"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "cdn-lfs.huggingface.co"
+  depends_on       = [azapi_resource_action.provision_managed_network]
 }
 
-resource "azapi_resource" "fqdn_huggingface_co" {
-  type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
-  name      = "allow-huggingface-co"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = {
-    properties = {
-      type        = "FQDN"
-      category    = "UserDefined"
-      destination = "huggingface.co"
-    }
-  }
-
-  schema_validation_enabled = false
-  ignore_missing_property   = true
-  depends_on                = [azapi_resource_action.provision_managed_network]
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "huggingface_co" {
+  name             = "allow-huggingface-co"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "huggingface.co"
+  depends_on       = [azapi_resource_action.provision_managed_network]
 }
 
-resource "azapi_resource" "fqdn_huggingface_co_wildcard" {
-  type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
-  name      = "allow-huggingface-co-wildcard"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = {
-    properties = {
-      type        = "FQDN"
-      category    = "UserDefined"
-      destination = "*.huggingface.co"
-    }
-  }
-
-  schema_validation_enabled = false
-  ignore_missing_property   = true
-  depends_on                = [azapi_resource_action.provision_managed_network]
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "huggingface_co_wildcard" {
+  name             = "allow-huggingface-co-wildcard"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "*.huggingface.co"
+  depends_on       = [azapi_resource_action.provision_managed_network]
 }
 
-resource "azapi_resource" "fqdn_xethub_hf_co" {
-  type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
-  name      = "allow-xethub-hf-co"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = {
-    properties = {
-      type        = "FQDN"
-      category    = "UserDefined"
-      destination = "xethub.hf.co"
-    }
-  }
-
-  schema_validation_enabled = false
-  ignore_missing_property   = true
-  depends_on                = [azapi_resource_action.provision_managed_network]
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "xethub_hf_co" {
+  name             = "allow-xethub-hf-co"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "xethub.hf.co"
+  depends_on       = [azapi_resource_action.provision_managed_network]
 }
 
-resource "azapi_resource" "fqdn_xethub_hf_co_wildcard" {
-  type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
-  name      = "allow-xethub-hf-co-wildcard"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = {
-    properties = {
-      type        = "FQDN"
-      category    = "UserDefined"
-      destination = "*.xethub.hf.co"
-    }
-  }
-
-  schema_validation_enabled = false
-  ignore_missing_property   = true
-  depends_on                = [azapi_resource_action.provision_managed_network]
+resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "xethub_hf_co_wildcard" {
+  name             = "allow-xethub-hf-co-wildcard"
+  workspace_id     = azapi_resource.ai_hub.id
+  destination_fqdn = "*.xethub.hf.co"
+  depends_on       = [azapi_resource_action.provision_managed_network]
 }
 
-# --- Removed blocks: migrate FQDN rules from azurerm to azapi without -----
-# --- deleting them in Azure. The azurerm provider had a bug where rules ----
-# --- were silently lost from state. These blocks can be removed after the --
-# --- first successful apply with the new azapi resources. ------------------
+# --- Removed blocks: clean transition from azapi_resource FQDN rules ------
+# These prevent Terraform from trying to delete rules still in state from ---
+# previous provider iterations. Safe to remove after one successful apply. --
 removed {
-  from = azurerm_machine_learning_workspace_network_outbound_rule_fqdn.docker_io
+  from = azapi_resource.fqdn_docker_io
   lifecycle { destroy = false }
 }
 removed {
-  from = azurerm_machine_learning_workspace_network_outbound_rule_fqdn.docker_io_wildcard
+  from = azapi_resource.fqdn_docker_io_wildcard
   lifecycle { destroy = false }
 }
 removed {
-  from = azurerm_machine_learning_workspace_network_outbound_rule_fqdn.docker_com
+  from = azapi_resource.fqdn_docker_com
   lifecycle { destroy = false }
 }
 removed {
-  from = azurerm_machine_learning_workspace_network_outbound_rule_fqdn.cloudflare_docker
+  from = azapi_resource.fqdn_cloudflare_docker
   lifecycle { destroy = false }
 }
 removed {
-  from = azurerm_machine_learning_workspace_network_outbound_rule_fqdn.auth0
+  from = azapi_resource.fqdn_auth0
   lifecycle { destroy = false }
 }
 removed {
-  from = azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface
+  from = azapi_resource.fqdn_huggingface_lfs
   lifecycle { destroy = false }
 }
 removed {
-  from = azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co
+  from = azapi_resource.fqdn_huggingface_co
   lifecycle { destroy = false }
 }
 removed {
-  from = azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co_wildcard
+  from = azapi_resource.fqdn_huggingface_co_wildcard
   lifecycle { destroy = false }
 }
 removed {
-  from = azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co
+  from = azapi_resource.fqdn_xethub_hf_co
   lifecycle { destroy = false }
 }
 removed {
-  from = azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co_wildcard
+  from = azapi_resource.fqdn_xethub_hf_co_wildcard
   lifecycle { destroy = false }
 }
 

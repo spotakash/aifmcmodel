@@ -106,7 +106,7 @@ Microsoft-Managed Subscription (enableServiceSideCMKEncryption = true):
 | CMK Key Vault, Key, User-Assigned Identity, RBAC | `azurerm` | CMK encryption for AI Hub |
 | AI Foundry Hub | `azapi ~> 2.0` | CMK + managed network + `kind=Hub` via ARM API |
 | AI Foundry Project | `azurerm` | Supported via `azurerm_ai_foundry_project` |
-| FQDN Outbound Rules | `azapi ~> 2.0` | Managed network egress rules via `Microsoft.MachineLearningServices/workspaces/outboundRules` — azurerm has a bug where rules are silently lost from state |
+| FQDN Outbound Rules | `azurerm ~> 4.0` | Managed network egress rules via `azurerm_machine_learning_workspace_network_outbound_rule_fqdn` — rules created AFTER managed network provisioning; azurerm read-back may be empty but rules self-heal on next apply |
 | Managed Network Provisioning | `azapi` | `provisionManagedNetwork` action (LRO) |
 | Online Endpoint + Deployment | `azapi ~> 2.0` | HuggingFace registry model + traffic routing (no azurerm support) |
 | Endpoint Traffic Allocation | `azapi ~> 2.0` | `azapi_update_resource` to set 100% traffic after deployment; `terraform_data` destroy provisioner to zero traffic before deletion |
