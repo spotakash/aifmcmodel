@@ -104,7 +104,7 @@ variable "jumpbox_admin_password" {
   default     = null
 
   validation {
-    condition = var.jumpbox_admin_password == null || (
+    condition = var.jumpbox_admin_password == null ? true : (
       length(var.jumpbox_admin_password) >= 12 &&
       can(regex("[a-z]", var.jumpbox_admin_password)) &&
       can(regex("[A-Z]", var.jumpbox_admin_password)) &&

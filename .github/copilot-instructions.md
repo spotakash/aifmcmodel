@@ -21,6 +21,8 @@ Main Resource Group (<project>)
  │    └── AI Foundry Project (azurerm_ai_foundry_project)
  │         └── Managed Online Endpoint (azapi)
  │              └── Model Deployment (azapi)
+ │                   └── Traffic Allocation (azapi_update_resource → 100%)
+ │                   └── Traffic Zeroing (terraform_data → 0% on destroy)
 ```
 
 ## File Layout Convention
@@ -40,7 +42,7 @@ Main Resource Group (<project>)
 | `cmk.tf` | CMK Key Vault + RSA Key + User-Assigned Identity + RBAC (separate RG) |
 | `ai_hub.tf` | AI Foundry Hub (azapi_resource, CMK-encrypted) |
 | `ai_project.tf` | AI Foundry Project (azurerm_ai_foundry_project) |
-| `endpoint.tf` | Online endpoint + model deployment (azapi) |
+| `endpoint.tf` | Online endpoint + model deployment + traffic allocation + destroy-time traffic zeroing (azapi) |
 | `outputs.tf` | All outputs |
 | `networking.tf` | VNet + Subnets (conditional on private mode) |
 | `bastion.tf` | Azure Bastion Standard SKU (conditional on private mode) |
@@ -62,7 +64,7 @@ All resource names are derived from `project_name` via `locals.tf`. Never hardco
 ## Provider Selection Rules
 
 1. **azurerm** — Use for stable, fully-supported resources (RG, Storage, KV, ACR, App Insights, Cognitive Services, AI Foundry Hub, AI Foundry Project)
-2. **azapi** — Use only for resources without native azurerm support: online endpoints and model deployments (HuggingFace registry + traffic routing)
+2. **azapi** — Use for resources without native azurerm support: online endpoints, model deployments (HuggingFace registry + traffic routing), FQDN outbound rules (azurerm has a bug that silently drops rules from state), and managed network provisioning
 3. **time** — Only for `time_sleep` between project creation and endpoint creation
 
 ## Key Coding Conventions
@@ -108,7 +110,8 @@ All resource names are derived from `project_name` via `locals.tf`. Never hardco
 - A 120s `time_sleep` is required between project creation and endpoint creation
 
 ### Dependencies
-- Explicit `depends_on` for ordering: project → sleep → endpoint → deployment
+- Explicit `depends_on` for ordering: project → sleep → endpoint → deployment → traffic_allocation → zero_traffic
+- On destroy, order reverses: zero_traffic (zeros via REST) → traffic_allocation → deployment → endpoint → project
 - Data sources like `azurerm_client_config.current` go in `main.tf`
 
 ## Variable Management
