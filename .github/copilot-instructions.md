@@ -63,8 +63,8 @@ All resource names are derived from `project_name` via `locals.tf`. Never hardco
 
 ## Provider Selection Rules
 
-1. **azurerm** — Use for stable, fully-supported resources (RG, Storage, KV, ACR, App Insights, Cognitive Services, AI Foundry Hub, AI Foundry Project)
-2. **azapi** — Use for resources without native azurerm support: online endpoints, model deployments (HuggingFace registry + traffic routing), FQDN outbound rules (azurerm has a bug that silently drops rules from state), and managed network provisioning
+1. **azurerm** — Use for stable, fully-supported resources (RG, Storage, KV, ACR, App Insights, Cognitive Services, AI Foundry Hub, AI Foundry Project, FQDN outbound rules)
+2. **azapi** — Use for resources without native azurerm support: online endpoints, model deployments (HuggingFace registry + traffic routing), and managed network provisioning
 3. **time** — Only for `time_sleep` between project creation and endpoint creation
 
 ## Key Coding Conventions

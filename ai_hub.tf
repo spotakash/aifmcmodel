@@ -208,50 +208,6 @@ resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "xethub
   depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co]
 }
 
-# --- Removed blocks: clean transition from azapi_resource FQDN rules ------
-# These prevent Terraform from trying to delete rules still in state from ---
-# previous provider iterations. Safe to remove after one successful apply. --
-removed {
-  from = azapi_resource.fqdn_docker_io
-  lifecycle { destroy = false }
-}
-removed {
-  from = azapi_resource.fqdn_docker_io_wildcard
-  lifecycle { destroy = false }
-}
-removed {
-  from = azapi_resource.fqdn_docker_com
-  lifecycle { destroy = false }
-}
-removed {
-  from = azapi_resource.fqdn_cloudflare_docker
-  lifecycle { destroy = false }
-}
-removed {
-  from = azapi_resource.fqdn_auth0
-  lifecycle { destroy = false }
-}
-removed {
-  from = azapi_resource.fqdn_huggingface_lfs
-  lifecycle { destroy = false }
-}
-removed {
-  from = azapi_resource.fqdn_huggingface_co
-  lifecycle { destroy = false }
-}
-removed {
-  from = azapi_resource.fqdn_huggingface_co_wildcard
-  lifecycle { destroy = false }
-}
-removed {
-  from = azapi_resource.fqdn_xethub_hf_co
-  lifecycle { destroy = false }
-}
-removed {
-  from = azapi_resource.fqdn_xethub_hf_co_wildcard
-  lifecycle { destroy = false }
-}
-
 # -----------------------------------------------------------------------------
 # Provision managed network — AllowOnlyApprovedOutbound creates a managed VNet.
 # This triggers immediately so the network (VNet + Firewall + PE connections)

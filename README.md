@@ -204,7 +204,7 @@ terraform destroy -auto-approve
 # attempts parallel deletion → 409 conflicts + 30 min timeouts.
 # Hub deletion cascade-deletes all child outbound rules automatically, so
 # removing them from state lets the Hub handle cleanup instead.
-terraform state list | grep 'azapi_resource.fqdn_' | xargs -I{} terraform state rm {}
+terraform state list | grep fqdn | xargs -I{} terraform state rm {}
 
 # Step 2: Plan destroy (FQDN rules no longer in plan = no timeout/conflict)
 terraform plan -destroy -out=main.destroy.tfplan
@@ -377,7 +377,7 @@ See [scripts/README.md](scripts/README.md) for full usage.
 | `soft_delete_retention_days cannot be modified` | Existing KV retention mismatch | Must destroy and recreate the KV — `soft_delete_retention_days` is immutable |
 | `User container has crashed` on model deployment | Model weight download blocked by managed network | Add FQDN rules for `huggingface.co`, `*.huggingface.co`, `xethub.hf.co`, `*.xethub.hf.co` |
 | `Can't delete deployment with non-zero traffic` | Deployment has 100% traffic weight; Azure blocks deletion | Auto-handled — `terraform_data.zero_endpoint_traffic` zeros traffic before destroy. If manual fix needed: [Zero traffic manually](#zeroing-endpoint-traffic-manually) |
-| `Provider produced inconsistent result` on FQDN rule | azurerm provider bug — Azure creates rule but read-back is empty | Fixed — FQDN rules migrated to `azapi_resource` which uses raw ARM PUT/GET and does not have this bug |
+| `Provider produced inconsistent result` on FQDN rule | azurerm provider bug — Azure creates rule but read-back is empty | Self-healing — rules drop from state but are recreated on next `terraform apply`. FQDN rules are chained sequentially to avoid 409 conflicts |
 | `unable to determine the Resource ID` for CMK Key | azurerm bug — CMK Key Vault URL resolution fails during destroy if main RG deleted first | Run `terraform state rm azurerm_key_vault_key.cmk` then re-run destroy — KV deletion auto-deletes keys |
 | `InternalServerError` on Hub update | Azure rejects in-place changes to `hbiWorkspace` or `publicNetworkAccess` | Added to `lifecycle { ignore_changes }` — Terraform won't attempt the update |
 | CMK KV `Forbidden` / `ForbiddenByConnection` | CMK Key Vault `public_network_access` set to `false` — deployer blocked | CMK KV must always have `public_network_access_enabled = true` (already fixed in `cmk.tf`) |
