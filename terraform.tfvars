@@ -11,7 +11,7 @@ project_name = "gtpe" #Change this for each new deployment to avoid pooling erro
 # --- Azure ML Service Principal ---
 # Object ID of the Azure ML first-party SP in this tenant.
 # Find via: az ad sp list --display-name 'Azure Machine Learning' --query '[0].id' -o tsv
-azure_ml_sp_object_id = "<replace-with-your-tenant-object-id>"
+azure_ml_sp_object_id = "ec59879b-a016-4ac4-b484-7f36f3fa2a57"
 
 # Option A: GTE Large EN v1.5 (CPU OK — auto-selects Standard_DS5_v2)
 deployment_name = "gte-large-en-v15-11"

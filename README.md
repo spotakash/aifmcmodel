@@ -106,9 +106,10 @@ Microsoft-Managed Subscription (enableServiceSideCMKEncryption = true):
 | CMK Key Vault, Key, User-Assigned Identity, RBAC | `azurerm` | CMK encryption for AI Hub |
 | AI Foundry Hub | `azapi ~> 2.0` | CMK + managed network + `kind=Hub` via ARM API |
 | AI Foundry Project | `azurerm` | Supported via `azurerm_ai_foundry_project` |
-| FQDN Outbound Rules | `azurerm` | Managed network egress rules via `azurerm_machine_learning_workspace_network_outbound_rule_fqdn` |
+| FQDN Outbound Rules | `azapi ~> 2.0` | Managed network egress rules via `Microsoft.MachineLearningServices/workspaces/outboundRules` — azurerm has a bug where rules are silently lost from state |
 | Managed Network Provisioning | `azapi` | `provisionManagedNetwork` action (LRO) |
 | Online Endpoint + Deployment | `azapi ~> 2.0` | HuggingFace registry model + traffic routing (no azurerm support) |
+| Endpoint Traffic Allocation | `azapi ~> 2.0` | `azapi_update_resource` to set 100% traffic after deployment; `terraform_data` destroy provisioner to zero traffic before deletion |
 | VNet, Subnets, Bastion, PE, DNS Zones | `azurerm` | Conditional private networking stack (count-gated on `public_network_access`) |
 | Data Science VM (Jumpbox) | `azurerm` | Windows Server 2022 DSVM — no marketplace plan required |
 | Sleep timer | `time ~> 0.11` | Wait for project services to initialize |
@@ -164,6 +165,7 @@ All resource names are derived from a single `project_name` variable via `locals
 | `tests/test_endpoint_quick.py` | Interactive single-shot endpoint test (Key / AAD / AML auth) |
 | `tests/test_endpoint_soak.py` | Prolonged soak test — round-robin auth, JSONL results, HTML report |
 | `scripts/check_model_sku.py` | Query Azure ML Registry for model SKU requirements |
+| `scripts/destroy.sh` | Clean destroy wrapper — removes FQDN rules from state before destroy |
 
 ## Usage
 
@@ -177,19 +179,44 @@ terraform plan -out=tfplan
 # Deploy (model deployment takes ~10-15 min)
 terraform apply tfplan
 
-# Destroy Plan
-terraform plan -destroy -out=main.destroy.tfplan
+# Destroy (single command — handles FQDN state cleanup automatically)
+./scripts/destroy.sh
 
-# Apply Destroy
+# Or plan-only first, then apply separately:
+./scripts/destroy.sh --plan
 terraform apply main.destroy.tfplan
 
-# Destroy is fully automated — the AI Project has a destroy-time provisioner
-# that cleans up child online endpoints before project deletion.
+# Destroy is fully automated — FQDN rules removed from state (Hub cascade-deletes them),
+# traffic is zeroed, endpoints cleaned up, and the AI Project has a destroy-time provisioner.
 # Manual targeted destroy (only if automation fails):
 terraform destroy -target=azapi_resource.model_deployment -auto-approve
 terraform destroy -target=azapi_resource.online_endpoint -auto-approve
 terraform destroy -auto-approve
 ```
+
+<details>
+<summary>Manual destroy steps (what the script does and why)</summary>
+
+```bash
+# Step 1: Remove FQDN outbound rules from Terraform state.
+# Azure processes FQDN rule deletions sequentially — each one triggers an
+# Azure Firewall reconfiguration that takes ~5 min. With 10 rules, Terraform
+# attempts parallel deletion → 409 conflicts + 30 min timeouts.
+# Hub deletion cascade-deletes all child outbound rules automatically, so
+# removing them from state lets the Hub handle cleanup instead.
+terraform state list | grep 'azapi_resource.fqdn_' | xargs -I{} terraform state rm {}
+
+# Step 2: Plan destroy (FQDN rules no longer in plan = no timeout/conflict)
+terraform plan -destroy -out=main.destroy.tfplan
+
+# Step 3: Apply destroy
+# Automated sequence: zero traffic → delete deployment → delete endpoint →
+# project provisioner cleans orphans → Hub cascade-deletes FQDN rules +
+# firewall + managed network PEs → shared resources → CMK resources → RGs
+terraform apply main.destroy.tfplan
+```
+
+</details>
 
 > **WSL / Windows Note:** All `local-exec` provisioners use single-line commands to avoid
 > CRLF (`\r\n`) issues when the workspace lives on `/mnt/c/` (Windows filesystem via WSL).
@@ -349,16 +376,26 @@ See [scripts/README.md](scripts/README.md) for full usage.
 | `User assigned identity doesn't have enough permissions` | CMK identity lacks `vaults/read` | Identity needs both `Key Vault Crypto User` + `Reader` roles on CMK vault |
 | `soft_delete_retention_days cannot be modified` | Existing KV retention mismatch | Must destroy and recreate the KV — `soft_delete_retention_days` is immutable |
 | `User container has crashed` on model deployment | Model weight download blocked by managed network | Add FQDN rules for `huggingface.co`, `*.huggingface.co`, `xethub.hf.co`, `*.xethub.hf.co` |
-| `Can't delete deployment with non-zero traffic` | Deployment has 100% traffic weight; Azure blocks deletion | [Zero traffic first](#zeroing-endpoint-traffic-before-destroy), then re-run destroy |
-| `Provider produced inconsistent result` on FQDN rule | azurerm provider bug — Azure creates rule but read-back is empty | Re-run `terraform apply` — rules will be recreated |
+| `Can't delete deployment with non-zero traffic` | Deployment has 100% traffic weight; Azure blocks deletion | Auto-handled — `terraform_data.zero_endpoint_traffic` zeros traffic before destroy. If manual fix needed: [Zero traffic manually](#zeroing-endpoint-traffic-manually) |
+| `Provider produced inconsistent result` on FQDN rule | azurerm provider bug — Azure creates rule but read-back is empty | Fixed — FQDN rules migrated to `azapi_resource` which uses raw ARM PUT/GET and does not have this bug |
+| `unable to determine the Resource ID` for CMK Key | azurerm bug — CMK Key Vault URL resolution fails during destroy if main RG deleted first | Run `terraform state rm azurerm_key_vault_key.cmk` then re-run destroy — KV deletion auto-deletes keys |
 | `InternalServerError` on Hub update | Azure rejects in-place changes to `hbiWorkspace` or `publicNetworkAccess` | Added to `lifecycle { ignore_changes }` — Terraform won't attempt the update |
 | CMK KV `Forbidden` / `ForbiddenByConnection` | CMK Key Vault `public_network_access` set to `false` — deployer blocked | CMK KV must always have `public_network_access_enabled = true` (already fixed in `cmk.tf`) |
 | DSVM `ResourcePurchaseValidationFailed` | `plan` block included but image doesn't require it | Remove `plan` block and `azurerm_marketplace_agreement` — `dsvm-win-2022` doesn't need them |
 | `EgressPublicNetworkAccess no longer supported` | `egressPublicNetworkAccess` set on deployment with managed VNet workspace | Remove `egressPublicNetworkAccess` from model deployment body — managed network controls egress |
 
-### Zeroing Endpoint Traffic Before Destroy
+### Automated Traffic Management
 
-Azure blocks deletion of deployments with non-zero traffic weight. Use either method to zero traffic before running `terraform destroy`:
+Traffic allocation is fully automated:
+
+- **On deploy:** `azapi_update_resource.endpoint_traffic` sets traffic to 100% after the model deployment succeeds
+- **On destroy:** `terraform_data.zero_endpoint_traffic` zeros traffic via REST API before Terraform deletes the deployment
+
+This eliminates the manual traffic zeroing step that was previously required.
+
+### Zeroing Endpoint Traffic Manually
+
+If the automated destroy provisioner fails (e.g. Azure CLI auth expired), use either method to zero traffic manually:
 
 **Method 1: Azure CLI (`az ml`)**
 
