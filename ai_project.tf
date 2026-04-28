@@ -36,6 +36,16 @@ resource "azurerm_ai_foundry_project" "ai_project" {
   depends_on = [
     terraform_data.purge_soft_deleted_ai_project,
     azapi_resource_action.provision_managed_network,
+    azapi_resource.fqdn_docker_io,
+    azapi_resource.fqdn_docker_io_wildcard,
+    azapi_resource.fqdn_docker_com,
+    azapi_resource.fqdn_cloudflare_docker,
+    azapi_resource.fqdn_auth0,
+    azapi_resource.fqdn_huggingface_lfs,
+    azapi_resource.fqdn_huggingface_co,
+    azapi_resource.fqdn_huggingface_co_wildcard,
+    azapi_resource.fqdn_xethub_hf_co,
+    azapi_resource.fqdn_xethub_hf_co_wildcard,
   ]
 
   # ---------------------------------------------------------------------------
