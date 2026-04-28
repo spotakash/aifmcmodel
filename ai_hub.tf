@@ -129,10 +129,14 @@ resource "time_sleep" "wait_for_hub_rbac" {
 # Adding FQDN rules triggers Azure Firewall (Standard SKU) creation.
 # See: https://aka.ms/azureml-managed-network#scenario-use-huggingface-models
 #
-# IMPORTANT: Uses azapi_resource instead of azurerm because the azurerm
-# provider has a bug where FQDN rules are created in Azure but the read-back
-# returns empty, causing Terraform to drop them from state. The azapi provider
-# uses raw ARM PUT/GET and does not have this issue.
+# IMPORTANT: Rules are created AFTER managed network provisioning. The
+# provisionManagedNetwork action creates the Azure Firewall from scratch and
+# can overwrite/lose FQDN rules that were created beforehand. By creating
+# rules after provisioning, they are applied to a live firewall reliably.
+#
+# Uses azapi_resource instead of azurerm because the azurerm provider has a
+# bug where FQDN rules are created in Azure but the read-back returns empty,
+# causing Terraform to drop them from state.
 # -----------------------------------------------------------------------------
 resource "azapi_resource" "fqdn_docker_io" {
   type      = "Microsoft.MachineLearningServices/workspaces/outboundRules@2025-01-01-preview"
@@ -149,7 +153,7 @@ resource "azapi_resource" "fqdn_docker_io" {
 
   schema_validation_enabled = false
   ignore_missing_property   = true
-  depends_on                = [time_sleep.wait_for_hub_rbac]
+  depends_on                = [azapi_resource_action.provision_managed_network]
 }
 
 resource "azapi_resource" "fqdn_docker_io_wildcard" {
@@ -167,7 +171,7 @@ resource "azapi_resource" "fqdn_docker_io_wildcard" {
 
   schema_validation_enabled = false
   ignore_missing_property   = true
-  depends_on                = [time_sleep.wait_for_hub_rbac]
+  depends_on                = [azapi_resource_action.provision_managed_network]
 }
 
 resource "azapi_resource" "fqdn_docker_com" {
@@ -185,7 +189,7 @@ resource "azapi_resource" "fqdn_docker_com" {
 
   schema_validation_enabled = false
   ignore_missing_property   = true
-  depends_on                = [time_sleep.wait_for_hub_rbac]
+  depends_on                = [azapi_resource_action.provision_managed_network]
 }
 
 resource "azapi_resource" "fqdn_cloudflare_docker" {
@@ -203,7 +207,7 @@ resource "azapi_resource" "fqdn_cloudflare_docker" {
 
   schema_validation_enabled = false
   ignore_missing_property   = true
-  depends_on                = [time_sleep.wait_for_hub_rbac]
+  depends_on                = [azapi_resource_action.provision_managed_network]
 }
 
 resource "azapi_resource" "fqdn_auth0" {
@@ -221,7 +225,7 @@ resource "azapi_resource" "fqdn_auth0" {
 
   schema_validation_enabled = false
   ignore_missing_property   = true
-  depends_on                = [time_sleep.wait_for_hub_rbac]
+  depends_on                = [azapi_resource_action.provision_managed_network]
 }
 
 resource "azapi_resource" "fqdn_huggingface_lfs" {
@@ -239,7 +243,7 @@ resource "azapi_resource" "fqdn_huggingface_lfs" {
 
   schema_validation_enabled = false
   ignore_missing_property   = true
-  depends_on                = [time_sleep.wait_for_hub_rbac]
+  depends_on                = [azapi_resource_action.provision_managed_network]
 }
 
 resource "azapi_resource" "fqdn_huggingface_co" {
@@ -257,7 +261,7 @@ resource "azapi_resource" "fqdn_huggingface_co" {
 
   schema_validation_enabled = false
   ignore_missing_property   = true
-  depends_on                = [time_sleep.wait_for_hub_rbac]
+  depends_on                = [azapi_resource_action.provision_managed_network]
 }
 
 resource "azapi_resource" "fqdn_huggingface_co_wildcard" {
@@ -275,7 +279,7 @@ resource "azapi_resource" "fqdn_huggingface_co_wildcard" {
 
   schema_validation_enabled = false
   ignore_missing_property   = true
-  depends_on                = [time_sleep.wait_for_hub_rbac]
+  depends_on                = [azapi_resource_action.provision_managed_network]
 }
 
 resource "azapi_resource" "fqdn_xethub_hf_co" {
@@ -293,7 +297,7 @@ resource "azapi_resource" "fqdn_xethub_hf_co" {
 
   schema_validation_enabled = false
   ignore_missing_property   = true
-  depends_on                = [time_sleep.wait_for_hub_rbac]
+  depends_on                = [azapi_resource_action.provision_managed_network]
 }
 
 resource "azapi_resource" "fqdn_xethub_hf_co_wildcard" {
@@ -311,7 +315,7 @@ resource "azapi_resource" "fqdn_xethub_hf_co_wildcard" {
 
   schema_validation_enabled = false
   ignore_missing_property   = true
-  depends_on                = [time_sleep.wait_for_hub_rbac]
+  depends_on                = [azapi_resource_action.provision_managed_network]
 }
 
 # --- Removed blocks: migrate FQDN rules from azurerm to azapi without -----
@@ -361,13 +365,17 @@ removed {
 
 # -----------------------------------------------------------------------------
 # Provision managed network — AllowOnlyApprovedOutbound creates a managed VNet.
-# FQDN outbound rules trigger Azure Firewall (Standard SKU) creation.
-# Provisioning is lazy by default; this triggers it immediately so the network
-# (VNet + Firewall + PE connections) is ready before endpoints are created.
+# This triggers immediately so the network (VNet + Firewall + PE connections)
+# is ready before FQDN rules and endpoints are created.
 # Azure auto-creates required outbound rules for workspace resources (Storage,
 # ACR, KV, App Insights) and essential services (AAD, ARM, MCR, Azure ML).
 # azapi_resource_action handles the Azure LRO (async) tracking natively —
 # it won't complete until the managed network is fully provisioned.
+#
+# IMPORTANT: FQDN rules are created AFTER this step, not before. The
+# provisionManagedNetwork action creates the Azure Firewall from scratch and
+# overwrites FQDN rules that existed beforehand. By provisioning first and
+# then adding FQDN rules, they are applied to a live firewall reliably.
 # -----------------------------------------------------------------------------
 resource "azapi_resource_action" "provision_managed_network" {
   type        = "Microsoft.MachineLearningServices/workspaces@2025-01-01-preview"
@@ -380,15 +388,5 @@ resource "azapi_resource_action" "provision_managed_network" {
 
   depends_on = [
     time_sleep.wait_for_hub_rbac,
-    azapi_resource.fqdn_docker_io,
-    azapi_resource.fqdn_docker_io_wildcard,
-    azapi_resource.fqdn_docker_com,
-    azapi_resource.fqdn_cloudflare_docker,
-    azapi_resource.fqdn_auth0,
-    azapi_resource.fqdn_huggingface_lfs,
-    azapi_resource.fqdn_huggingface_co,
-    azapi_resource.fqdn_huggingface_co_wildcard,
-    azapi_resource.fqdn_xethub_hf_co,
-    azapi_resource.fqdn_xethub_hf_co_wildcard,
   ]
 }
