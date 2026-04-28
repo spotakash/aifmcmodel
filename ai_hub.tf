@@ -127,11 +127,11 @@ resource "time_sleep" "wait_for_hub_rbac" {
 # AllowOnlyApprovedOutbound blocks all egress by default. The model container
 # image is pulled from Docker Hub, and model artifacts from HuggingFace CDN.
 #
-# Uses azurerm_machine_learning_workspace_network_outbound_rule_fqdn.
-# Known behavior: azurerm read-back sometimes returns empty, so rules may
-# not persist in state. This is acceptable — on next apply, Terraform
-# silently recreates any missing rules (idempotent PUT). This self-heals
-# if Azure's managed network reconciliation removes rules.
+# IMPORTANT: Rules are chained sequentially (each depends on the previous).
+# Azure processes FQDN rule changes one at a time — each PUT triggers an
+# async Azure Firewall reconfiguration (~3-5 min). Parallel creation causes
+# 409 conflicts. Sequential chaining ensures only one rule is being
+# created/updated at any time.
 #
 # Rules are created AFTER managed network provisioning. The
 # provisionManagedNetwork action creates the Azure Firewall from scratch;
@@ -149,63 +149,63 @@ resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "docker
   name             = "allow-docker-io-wildcard"
   workspace_id     = azapi_resource.ai_hub.id
   destination_fqdn = "*.docker.io"
-  depends_on       = [azapi_resource_action.provision_managed_network]
+  depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.docker_io]
 }
 
 resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "docker_com" {
   name             = "allow-docker-com"
   workspace_id     = azapi_resource.ai_hub.id
   destination_fqdn = "*.docker.com"
-  depends_on       = [azapi_resource_action.provision_managed_network]
+  depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.docker_io_wildcard]
 }
 
 resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "cloudflare_docker" {
   name             = "allow-cloudflare-docker"
   workspace_id     = azapi_resource.ai_hub.id
   destination_fqdn = "production.cloudflare.docker.com"
-  depends_on       = [azapi_resource_action.provision_managed_network]
+  depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.docker_com]
 }
 
 resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "auth0" {
   name             = "allow-auth0"
   workspace_id     = azapi_resource.ai_hub.id
   destination_fqdn = "cdn.auth0.com"
-  depends_on       = [azapi_resource_action.provision_managed_network]
+  depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.cloudflare_docker]
 }
 
 resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "huggingface" {
   name             = "allow-huggingface-lfs"
   workspace_id     = azapi_resource.ai_hub.id
   destination_fqdn = "cdn-lfs.huggingface.co"
-  depends_on       = [azapi_resource_action.provision_managed_network]
+  depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.auth0]
 }
 
 resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "huggingface_co" {
   name             = "allow-huggingface-co"
   workspace_id     = azapi_resource.ai_hub.id
   destination_fqdn = "huggingface.co"
-  depends_on       = [azapi_resource_action.provision_managed_network]
+  depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface]
 }
 
 resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "huggingface_co_wildcard" {
   name             = "allow-huggingface-co-wildcard"
   workspace_id     = azapi_resource.ai_hub.id
   destination_fqdn = "*.huggingface.co"
-  depends_on       = [azapi_resource_action.provision_managed_network]
+  depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co]
 }
 
 resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "xethub_hf_co" {
   name             = "allow-xethub-hf-co"
   workspace_id     = azapi_resource.ai_hub.id
   destination_fqdn = "xethub.hf.co"
-  depends_on       = [azapi_resource_action.provision_managed_network]
+  depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co_wildcard]
 }
 
 resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "xethub_hf_co_wildcard" {
   name             = "allow-xethub-hf-co-wildcard"
   workspace_id     = azapi_resource.ai_hub.id
   destination_fqdn = "*.xethub.hf.co"
-  depends_on       = [azapi_resource_action.provision_managed_network]
+  depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co]
 }
 
 # --- Removed blocks: clean transition from azapi_resource FQDN rules ------
