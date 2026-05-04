@@ -106,7 +106,7 @@ Microsoft-Managed Subscription (enableServiceSideCMKEncryption = true):
 | CMK Key Vault, Key, User-Assigned Identity, RBAC | `azurerm` | CMK encryption for AI Hub |
 | AI Foundry Hub | `azapi ~> 2.0` | CMK + managed network + `kind=Hub` via ARM API |
 | AI Foundry Project | `azurerm` | Supported via `azurerm_ai_foundry_project` |
-| FQDN Outbound Rules | `azurerm ~> 4.0` | Managed network egress rules via `azurerm_machine_learning_workspace_network_outbound_rule_fqdn` — rules created AFTER managed network provisioning; azurerm read-back may be empty but rules self-heal on next apply |
+| FQDN Outbound Rules | `azurerm ~> 4.0` | Managed network egress rules via `azurerm_machine_learning_workspace_network_outbound_rule_fqdn` — chained sequentially (each depends on the previous) to avoid Azure Firewall 409 conflicts |
 | Managed Network Provisioning | `azapi` | `provisionManagedNetwork` action (LRO) |
 | Online Endpoint + Deployment | `azapi ~> 2.0` | HuggingFace registry model + traffic routing (no azurerm support) |
 | Endpoint Traffic Allocation | `azapi ~> 2.0` | `azapi_update_resource` to set 100% traffic after deployment; `terraform_data` destroy provisioner to zero traffic before deletion |
@@ -143,10 +143,11 @@ All resource names are derived from a single `project_name` variable via `locals
 
 | File | Purpose |
 |---|---|
-| `versions.tf` | Terraform and provider version constraints |
-| `providers.tf` | Provider configuration (KV recovery, RG force delete) |
+| `versions.tf` | Terraform + provider version constraints + remote state backend |
+| `providers.tf` | Provider configuration (KV recovery, RG force delete, OIDC auth) |
 | `variables.tf` | All input variables with validation |
 | `terraform.tfvars` | Minimal config — only `project_name` + deployment params |
+| `backend.tfvars.example` | Example backend config for Azure Storage remote state |
 | `locals.tf` | All derived resource names + safe prefix logic |
 | `main.tf` | Resource group + data sources |
 | `storage.tf` | Storage account with ML CORS rules |
@@ -161,23 +162,52 @@ All resource names are derived from a single `project_name` variable via `locals
 | `bastion.tf` | Azure Bastion Standard SKU (conditional on private mode) |
 | `private_endpoint.tf` | Private Endpoint + Private DNS Zones for AI Hub (conditional on private mode) |
 | `jumpbox.tf` | Data Science VM jumpbox — Windows Server 2022 (conditional on private mode) |
-| `outputs.tf` | Key resource outputs |
+| `outputs.tf` | Scoring endpoint URI output (other IDs available via `terraform state show`) |
 | `tests/test_endpoint_quick.py` | Interactive single-shot endpoint test (Key / AAD / AML auth) |
 | `tests/test_endpoint_soak.py` | Prolonged soak test — round-robin auth, JSONL results, HTML report |
 | `scripts/check_model_sku.py` | Query Azure ML Registry for model SKU requirements |
 | `scripts/destroy.sh` | Clean destroy wrapper — removes FQDN rules from state before destroy |
+| `.github/workflows/plan.yml` | GitHub Actions — manual Terraform Plan with OIDC auth |
+| `.github/workflows/apply.yml` | GitHub Actions — manual Terraform Apply with OIDC auth |
+| `.github/workflows/plan-destroy.yml` | GitHub Actions — manual Terraform Plan Destroy |
+| `.github/workflows/apply-destroy.yml` | GitHub Actions — manual Terraform Apply Destroy (requires confirmation) |
 
 ## Usage
 
+### Local Development
+
 ```bash
-# Initialize
-terraform init
+# Initialize with remote backend
+terraform init -backend-config=backend.tfvars
 
 # Review plan
 terraform plan -out=tfplan
 
 # Deploy (model deployment takes ~10-15 min)
 terraform apply tfplan
+```
+
+### CI/CD via GitHub Actions
+
+Four manual-trigger workflows are provided in `.github/workflows/`:
+
+| Workflow | Purpose |
+|---|---|
+| **Terraform Plan** | Preview infrastructure changes (uploads plan artifact) |
+| **Terraform Apply** | Deploy infrastructure changes |
+| **Terraform Plan Destroy** | Preview teardown (uploads destroy plan artifact) |
+| **Terraform Apply Destroy** | Destroy all resources (requires typing `destroy` to confirm) |
+
+**Prerequisites for CI/CD:**
+
+1. Create an Azure Storage Account for remote state
+2. Register an App Registration with federated credentials for GitHub OIDC
+3. Configure GitHub Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
+4. Configure GitHub Variables: `BACKEND_RESOURCE_GROUP_NAME`, `BACKEND_STORAGE_ACCOUNT_NAME`, `BACKEND_CONTAINER_NAME`, `BACKEND_KEY`
+
+See [backend.tfvars.example](backend.tfvars.example) for the backend configuration template.
+
+### Destroy
 
 # Destroy (single command — handles FQDN state cleanup automatically)
 ./scripts/destroy.sh

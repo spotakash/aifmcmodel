@@ -50,13 +50,14 @@ jobs:
   terraform-apply-destroy:
     name: "Terraform Apply Destroy"
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/copilot/add-manual-trigger-workflows' && github.event.inputs.confirm_destroy == 'destroy'
+    if: github.event.inputs.confirm_destroy == 'destroy'
 
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_USE_OIDC: "true"
+      TF_VAR_FILE: ${{ inputs.tfvars_file }}
 
     steps:
       - name: Checkout Repository
@@ -72,7 +73,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "~> 1.6"
+          terraform_version: "1.9.8"
 
       # =========================================================================
       # ⚠️  WARNING: TFVARS FILE CHANGE DETECTION
@@ -81,11 +82,11 @@ jobs:
         run: |
           echo ""
           echo "============================================================"
-          echo "  CHECKING FOR RECENT CHANGES IN: ${{ inputs.tfvars_file }}"
+          echo "  CHECKING FOR RECENT CHANGES IN: $TF_VAR_FILE"
           echo "============================================================"
           echo ""
 
-          CHANGED=$(git log --oneline -5 -- "${{ inputs.tfvars_file }}" 2>/dev/null || true)
+          CHANGED=$(git log --oneline -5 -- "$TF_VAR_FILE" 2>/dev/null || true)
 
           if [ -n "$CHANGED" ]; then
             echo ""
@@ -94,7 +95,7 @@ jobs:
             echo "╔══════════════════════════════════════════════════════════════════╗"
             echo "║  ⚠️  **WARNING: TFVARS FILE HAS RECENT CHANGES**               ║"
             echo "║                                                                  ║"
-            echo "║  The file '${{ inputs.tfvars_file }}' was modified recently.     ║"
+            echo "║  The file '$TF_VAR_FILE' was modified recently.                 ║"
             echo "║  Please review the changes below and make an INFORMED DECISION  ║"
             echo "║  before proceeding with destroy.                                 ║"
             echo "║                                                                  ║"
@@ -104,10 +105,10 @@ jobs:
             echo "$CHANGED"
             echo ""
             echo "--- Diff of recent changes ---"
-            git diff HEAD~5..HEAD -- "${{ inputs.tfvars_file }}" 2>/dev/null || echo "(unable to show diff)"
+            git diff HEAD~5..HEAD -- "$TF_VAR_FILE" 2>/dev/null || echo "(unable to show diff)"
             echo ""
           else
-            echo "✅ No recent changes detected in ${{ inputs.tfvars_file }}"
+            echo "✅ No recent changes detected in $TF_VAR_FILE"
           fi
 
       - name: Terraform Init
@@ -122,7 +123,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan Destroy (preview before execution)
-        run: terraform plan -destroy -var-file="${{ inputs.tfvars_file }}"
+        run: terraform plan -destroy -var-file="$TF_VAR_FILE"
 
       - name: Terraform Destroy
-        run: terraform destroy -auto-approve -var-file="${{ inputs.tfvars_file }}"
+        run: terraform destroy -auto-approve -var-file="$TF_VAR_FILE"

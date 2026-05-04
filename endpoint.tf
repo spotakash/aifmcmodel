@@ -69,11 +69,11 @@ resource "azapi_resource" "model_deployment" {
   body = {
     kind = "Managed"
     properties = {
-      description               = "Self-hosted HuggingFace model deployment"
-      endpointComputeType       = "Managed"
-      model                     = var.model_id
-      instanceType              = local.resolved_instance_type
-      appInsightsEnabled        = true
+      description         = "Self-hosted HuggingFace model deployment"
+      endpointComputeType = "Managed"
+      model               = var.model_id
+      instanceType        = local.resolved_instance_type
+      appInsightsEnabled  = true
 
       requestSettings = {
         maxConcurrentRequestsPerInstance = 1
