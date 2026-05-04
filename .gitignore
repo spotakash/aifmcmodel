@@ -15,6 +15,7 @@ override.tf.json
 # Terraform variables (may contain secrets)
 # *.auto.tfvars
 # !terraform.tfvars
+backend.tfvars
 
 # Skills / Agent instructions
 .agents/

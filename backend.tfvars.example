@@ -1,0 +1,24 @@
+# =============================================================================
+# backend.tfvars — Azure Storage Account Backend Configuration
+# =============================================================================
+# This file provides the backend configuration for storing Terraform state
+# in Azure Blob Storage. Copy this file and fill in your values.
+#
+# USAGE:
+#   terraform init -backend-config=backend.tfvars
+#
+# PRE-REQUISITES:
+#   1. Create an Azure Storage Account with a blob container for state
+#   2. Ensure the Service Principal (used for OIDC) has "Storage Blob Data Contributor"
+#      role on the storage account
+#   3. Set these same values in GitHub Actions Variables:
+#      - BACKEND_RESOURCE_GROUP_NAME
+#      - BACKEND_STORAGE_ACCOUNT_NAME
+#      - BACKEND_CONTAINER_NAME
+#      - BACKEND_KEY
+# =============================================================================
+
+resource_group_name  = "rg-terraform-state"
+storage_account_name = "stterraformstate"
+container_name       = "tfstate"
+key                  = "aifmcmodel.terraform.tfstate"
