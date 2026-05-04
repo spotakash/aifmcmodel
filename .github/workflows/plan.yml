@@ -1,0 +1,130 @@
+# =============================================================================
+# Terraform Plan Workflow
+# =============================================================================
+# PURPOSE: Runs `terraform plan` to preview infrastructure changes.
+# TRIGGER: Manual only (workflow_dispatch) — restricted to this branch.
+# AUTH:    Azure OIDC via Entra ID (federated credentials, no secrets stored).
+# STATE:   Remote backend in Azure Storage Account (configured via backend.tfvars).
+#
+# REQUIRED GITHUB SECRETS/VARIABLES:
+#   - AZURE_CLIENT_ID        : App Registration (Service Principal) Client ID
+#   - AZURE_TENANT_ID        : Azure Entra ID Tenant ID
+#   - AZURE_SUBSCRIPTION_ID  : Target Azure Subscription ID
+#
+# REQUIRED GITHUB VARIABLES (Actions Variables, not Secrets):
+#   - BACKEND_RESOURCE_GROUP_NAME  : Resource group containing the storage account
+#   - BACKEND_STORAGE_ACCOUNT_NAME : Storage account name for TF state
+#   - BACKEND_CONTAINER_NAME       : Blob container name for TF state
+#   - BACKEND_KEY                  : State file name (e.g., terraform.tfstate)
+#
+# HOW TO USE:
+#   1. Go to Actions tab → "Terraform Plan" → "Run workflow"
+#   2. Select this branch and optionally provide a custom tfvars file path
+#   3. Review the plan output in the workflow logs
+# =============================================================================
+
+name: "Terraform Plan"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tfvars_file:
+        description: "Path to tfvars file (relative to repo root)"
+        required: false
+        default: "terraform.tfvars"
+        type: string
+
+# Restrict to this specific branch only
+# Other branches are independent and won't trigger this workflow
+permissions:
+  id-token: write   # Required for OIDC authentication with Azure
+  contents: read    # Required to checkout the repository
+
+jobs:
+  terraform-plan:
+    name: "Terraform Plan"
+    runs-on: ubuntu-latest
+    # Only allow runs from this specific branch
+    if: github.ref == 'refs/heads/copilot/add-manual-trigger-workflows'
+
+    env:
+      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC:        "true"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ">= 1.6"
+
+      # =========================================================================
+      # ⚠️  WARNING: TFVARS FILE CHANGE DETECTION
+      # =========================================================================
+      # If the tfvars file has been modified in recent commits, this step will
+      # print a bold warning. Users MUST review changes carefully before applying.
+      # =========================================================================
+      - name: "⚠️  Check for tfvars changes"
+        run: |
+          echo ""
+          echo "============================================================"
+          echo "  CHECKING FOR RECENT CHANGES IN: ${{ inputs.tfvars_file }}"
+          echo "============================================================"
+          echo ""
+
+          CHANGED=$(git log --oneline -5 -- "${{ inputs.tfvars_file }}" 2>/dev/null || true)
+
+          if [ -n "$CHANGED" ]; then
+            echo ""
+            echo "::warning::⚠️  THE TFVARS FILE HAS BEEN MODIFIED RECENTLY!"
+            echo ""
+            echo "╔══════════════════════════════════════════════════════════════════╗"
+            echo "║  ⚠️  **WARNING: TFVARS FILE HAS RECENT CHANGES**               ║"
+            echo "║                                                                  ║"
+            echo "║  The file '${{ inputs.tfvars_file }}' was modified recently.     ║"
+            echo "║  Please review the changes below and make an INFORMED DECISION  ║"
+            echo "║  before proceeding with apply.                                   ║"
+            echo "║                                                                  ║"
+            echo "║  Recent commits touching this file:                              ║"
+            echo "╚══════════════════════════════════════════════════════════════════╝"
+            echo ""
+            echo "$CHANGED"
+            echo ""
+            echo "--- Diff of recent changes ---"
+            git diff HEAD~5..HEAD -- "${{ inputs.tfvars_file }}" 2>/dev/null || echo "(unable to show diff)"
+            echo ""
+          else
+            echo "✅ No recent changes detected in ${{ inputs.tfvars_file }}"
+          fi
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.BACKEND_CONTAINER_NAME }}" \
+            -backend-config="key=${{ vars.BACKEND_KEY }}"
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -var-file="${{ inputs.tfvars_file }}" -out=tfplan
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.run_id }}
+          path: tfplan
+          retention-days: 7
