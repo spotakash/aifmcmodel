@@ -201,12 +201,12 @@ resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "xethub
   depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co_wildcard]
 }
 
-resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "xethub_hf_co_wildcard" {
-  name             = "allow-xethub-hf-co-wildcard"
-  workspace_id     = azapi_resource.ai_hub.id
-  destination_fqdn = "*.xethub.hf.co"
-  depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co]
-}
+# resource "azurerm_machine_learning_workspace_network_outbound_rule_fqdn" "xethub_hf_co_wildcard" {
+#   name             = "allow-xethub-hf-co-wildcard"
+#   workspace_id     = azapi_resource.ai_hub.id
+#   destination_fqdn = "*.xethub.hf.co"
+#   depends_on       = [azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co]
+# }
 
 # -----------------------------------------------------------------------------
 # Provision managed network — AllowOnlyApprovedOutbound creates a managed VNet.
