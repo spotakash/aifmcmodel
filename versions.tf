@@ -32,8 +32,11 @@ terraform {
   #   key                  = "aifmcmodel.terraform.tfstate"
   #
   # Authentication uses Azure OIDC (ARM_USE_OIDC=true) — no storage keys needed.
+  # use_azuread_auth forces Azure AD for data-plane ops (ListBlobs, GetBlob, etc.)
+  # so Terraform never falls back to storage account keys.
   # ===========================================================================
   backend "azurerm" {
-    use_oidc = true
+    use_oidc         = true
+    use_azuread_auth = true
   }
 }
