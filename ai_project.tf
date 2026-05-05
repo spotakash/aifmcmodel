@@ -45,7 +45,7 @@ resource "azurerm_ai_foundry_project" "ai_project" {
     azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co,
     azurerm_machine_learning_workspace_network_outbound_rule_fqdn.huggingface_co_wildcard,
     azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co,
-    azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co_wildcard,
+    # azurerm_machine_learning_workspace_network_outbound_rule_fqdn.xethub_hf_co_wildcard,
   ]
 
   # ---------------------------------------------------------------------------
